@@ -17,8 +17,10 @@ DECLARE_LOG_CATEGORY_EXTERN(LogMyCharacter, Log, All);
 UCLASS()
 class WASHINGMAN_API AMyCharacter : public ACharacter
 {
+	
 	GENERATED_BODY()
 
+	
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
@@ -40,6 +42,10 @@ protected:
 	/** Mouse Look Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* MouseLookAction;
+
+	/** Keyboard Dash Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* DashAction;
 
 public:
 	// Sets default values for this character's properties
@@ -64,6 +70,9 @@ protected:
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
 
+	/** Called for dashing input */
+	void Dash();
+
 public:
 
 	/** Handles move inputs from either controls or UI interfaces */
@@ -73,6 +82,10 @@ public:
 	/** Handles look inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category = "Input")
 	virtual void DoLook(float Yaw, float Pitch);
+
+	/** Handles dash inputs from either controls or UI interfaces */
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	virtual void DoDash();
 
 public:
 
