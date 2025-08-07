@@ -56,7 +56,10 @@ AMyCharacter::AMyCharacter()
 void AMyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	DefaultWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+	DefaultAcceleration = GetCharacterMovement()->MaxAcceleration;
+	GetCapsuleComponent()->OnComponentHit.AddDynamic(this, &AMyCharacter::OnCharacterHit);
 }
 
 // Called every frame
@@ -78,6 +81,7 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
 		EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
 		EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Started, this, &AMyCharacter::Dash);
+		EnhancedInputComponent->BindAction(BackflipAction, ETriggerEvent::Started, this, &AMyCharacter::Backflip);
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
@@ -89,8 +93,21 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 }
 
+void AMyCharacter::OnCharacterHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	if (bIsDashing && !bIsStunned) // 대시 중에만 처리
+	{
+		UE_LOG(LogMyCharacter, Warning, TEXT("Hit during dash - starting stun"));
+		StopDash();     // 대시 강제 종료
+		StartStun();    // 스턴 상태 진입
+	}
+}
+
 void AMyCharacter::Move(const FInputActionValue& Value)
 {
+	if (bIsBackflipping || bIsStunned) return;
+
 	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
@@ -100,6 +117,8 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 
 void AMyCharacter::Look(const FInputActionValue& Value)
 {
+	if (bIsBackflipping || bIsStunned) return;
+
 	// input is a Vector2D
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
 
@@ -109,8 +128,22 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 
 void AMyCharacter::Dash()
 {
+	if (bIsBackflipping || bIsStunned) return;
+
 	// route the input
 	DoDash();
+}
+
+void AMyCharacter::Backflip()
+{
+	if (bIsDashing && !bIsBackflipping && !bIsStunned)
+	{
+		// 타이머 제거 → StopDash가 중복으로 실행되는 것 방지
+		GetWorldTimerManager().ClearTimer(DashTimerHandle);
+
+		StopDash();  // 먼저 대시 중지
+		StartBackflip();
+	}
 }
 
 void AMyCharacter::DoMove(float Right, float Forward)
@@ -145,10 +178,129 @@ void AMyCharacter::DoLook(float Yaw, float Pitch)
 
 void AMyCharacter::DoDash()
 {
-	if (GetController() != nullptr)
+	if (GetController() != nullptr && !GetWorldTimerManager().IsTimerActive(DashTimerHandle))
 	{
-		const FVector ForwardDir = GetActorForwardVector(); // 캐릭터가 바라보는 방향
-		LaunchCharacter(ForwardDir * 15000.f, true, true);
-		UE_LOG(LogMyCharacter, Log, TEXT("캐릭터 바라보는 방향으로 대쉬 실행됨"));
+		StartDash();
+		UE_LOG(LogMyCharacter, Log, TEXT("Dash Started!"));
 	}
+}
+
+void AMyCharacter::StartDash()
+{
+	UE_LOG(LogMyCharacter, Warning, TEXT("Trying to dash: bIsDashing=%s, bIsStunned=%s"),
+		bIsDashing ? TEXT("true") : TEXT("false"),
+		bIsStunned ? TEXT("true") : TEXT("false"));
+
+	if (bIsDashing || bIsStunned)
+	{
+		UE_LOG(LogMyCharacter, Warning, TEXT("Dash prevented - conditions not met"));
+		return;
+	}
+
+	bIsDashing = true;
+
+	// 대시 속도로 변경
+	GetCharacterMovement()->MaxWalkSpeed = DashSpeed;
+	GetCharacterMovement()->MaxAcceleration = DashAcceleration;
+	UE_LOG(LogMyCharacter, Log, TEXT("Current MaxWalkSpeed: %f"), GetCharacterMovement()->MaxWalkSpeed);
+
+	// 강제 이동
+	AddMovementInput(GetActorForwardVector(), 1.0f);
+
+	// 타이머로 일정 시간 뒤 다시 원래 속도로
+	GetWorldTimerManager().SetTimer(DashTimerHandle, this, &AMyCharacter::StopDash, DashDuration, false);
+}
+
+void AMyCharacter::StopDash()
+{
+	if (!bIsDashing) return;
+
+	bIsDashing = false;
+
+	GetWorldTimerManager().ClearTimer(DashTimerHandle);
+
+	GetCharacterMovement()->MaxWalkSpeed = DefaultWalkSpeed;
+	GetCharacterMovement()->MaxAcceleration = DefaultAcceleration;
+
+	UE_LOG(LogMyCharacter, Log, TEXT("Dash Ended - Speed = %f"), GetCharacterMovement()->MaxWalkSpeed);
+}
+
+void AMyCharacter::StartBackflip()
+{
+	if (bIsBackflipping)
+		return;
+
+	UE_LOG(LogMyCharacter, Log, TEXT("Backflip Started!"));
+
+	bIsBackflipping = true;
+
+	if (BackflipMontage)
+	{
+		PlayAnimMontage(BackflipMontage);
+	}
+
+	// 이동 막기
+	GetCharacterMovement()->DisableMovement();
+
+	// 애니메이션 없더라도 회전 정지 효과
+	GetCharacterMovement()->Velocity = FVector::ZeroVector;
+
+	// ===== 앞 방향 장애물 감지 =====
+	FVector Start = GetActorLocation();
+	FVector End = Start + GetActorForwardVector() * 200.f;  // 앞 방향 200cm 감지
+
+	FHitResult HitResult;
+	FCollisionQueryParams TraceParams(FName(TEXT("BackflipTrace")), true, this);
+
+	bool bObstacleAhead = GetWorld()->LineTraceSingleByChannel(
+		HitResult,
+		Start,
+		End,
+		ECC_Visibility,  // or ECC_GameTraceChannel1 if custom
+		TraceParams
+	);
+
+	// 장애물 유무에 따라 백플립 시간 설정
+	float FlipDuration = bObstacleAhead ? 0.4f : 1.0f;
+
+	UE_LOG(LogMyCharacter, Log, TEXT("Backflip Duration: %f (ObstacleAhead: %s)"),
+		FlipDuration,
+		bObstacleAhead ? TEXT("True") : TEXT("False"));
+
+	// 1초 뒤 끝내기
+	GetWorldTimerManager().SetTimer(
+		BackflipTimerHandle,
+		this,
+		&AMyCharacter::EndBackflip,
+		FlipDuration,
+		false
+	);
+}
+
+void AMyCharacter::EndBackflip()
+{
+	UE_LOG(LogMyCharacter, Log, TEXT("Backflip Ended!"));
+	bIsBackflipping = false;
+	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+}
+
+void AMyCharacter::StartStun()
+{
+	bIsStunned = true;
+
+	// 움직임 멈추기
+	GetCharacterMovement()->DisableMovement();
+	UE_LOG(LogMyCharacter, Warning, TEXT("Stunned for 2 seconds"));
+
+	// 타이머로 복원 예약
+	GetWorldTimerManager().SetTimer(StunTimerHandle, this, &AMyCharacter::EndStun, 2.0f, false);
+}
+
+void AMyCharacter::EndStun()
+{
+	bIsStunned = false;
+
+	// 걷기 상태로 복원
+	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+	UE_LOG(LogMyCharacter, Warning, TEXT("Stun ended"));
 }

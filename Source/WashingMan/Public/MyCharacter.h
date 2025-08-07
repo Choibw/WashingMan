@@ -47,6 +47,54 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* DashAction;
 
+	/** Keyboard Backflip Input Action */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* BackflipAction;
+
+	// Dash 관련 변수
+	FTimerHandle DashTimerHandle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dash")
+	bool bIsDashing = false;
+
+	UPROPERTY(EditAnywhere, Category = "Dash")
+	float DefaultWalkSpeed = 500.f;
+
+	UPROPERTY(EditAnywhere, Category = "Dash")
+	float DashSpeed = 20000.f;
+
+	UPROPERTY(EditAnywhere, Category = "Dash")
+	float DashDuration = 0.7f;
+
+	UPROPERTY()
+	float DefaultAcceleration;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dash")
+	float DashAcceleration = 999999.f;
+
+	// Backflip 관련 변수
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Backflip")
+	bool bIsBackflipping = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Backflip")
+	float BackflipDistance = 600.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Backflip")
+	float BackflipDuration = 1.0f;
+
+	FTimerHandle BackflipTimerHandle;
+
+	// Stun 관련 변수
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stun")
+	bool bIsStunned = false;
+
+	FTimerHandle StunTimerHandle;
+
+	// 애니메이션
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	UAnimMontage* BackflipMontage;
+
+
 public:
 	// Sets default values for this character's properties
 	AMyCharacter();
@@ -73,6 +121,21 @@ protected:
 	/** Called for dashing input */
 	void Dash();
 
+	void StartDash();
+
+	void StopDash();
+
+	void Backflip();        
+
+	void StartBackflip();   
+
+	void EndBackflip();     
+
+	void StartStun();
+
+	void EndStun();
+
+
 public:
 
 	/** Handles move inputs from either controls or UI interfaces */
@@ -86,6 +149,10 @@ public:
 	/** Handles dash inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category = "Input")
 	virtual void DoDash();
+
+	UFUNCTION()
+	void OnCharacterHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
+		UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
 public:
 
