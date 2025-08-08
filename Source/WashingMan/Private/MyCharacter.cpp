@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ï»¿// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "MyCharacter.h"
@@ -11,6 +11,9 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "DrawDebugHelpers.h"
 
 DEFINE_LOG_CATEGORY(LogMyCharacter);
 
@@ -66,7 +69,6 @@ void AMyCharacter::BeginPlay()
 void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 }
 
 // Called to bind functionality to input
@@ -96,11 +98,11 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 void AMyCharacter::OnCharacterHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	if (bIsDashing && !bIsStunned) // ´ë½Ã Áß¿¡¸¸ Ã³¸®
+	if (bIsDashing && !bIsStunned)
 	{
 		UE_LOG(LogMyCharacter, Warning, TEXT("Hit during dash - starting stun"));
-		StopDash();     // ´ë½Ã °­Á¦ Á¾·á
-		StartStun();    // ½ºÅÏ »óÅÂ ÁøÀÔ
+		StopDash();     // ëŒ€ì‹œ ê°•ì œ ì¢…ë£Œ
+		StartStun();    // ìŠ¤í„´ ìƒíƒœ ì§„ì…
 	}
 }
 
@@ -129,7 +131,6 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 void AMyCharacter::Dash()
 {
 	if (bIsBackflipping || bIsStunned) return;
-
 	// route the input
 	DoDash();
 }
@@ -138,10 +139,10 @@ void AMyCharacter::Backflip()
 {
 	if (bIsDashing && !bIsBackflipping && !bIsStunned)
 	{
-		// Å¸ÀÌ¸Ó Á¦°Å ¡æ StopDash°¡ Áßº¹À¸·Î ½ÇÇàµÇ´Â °Í ¹æÁö
+		// íƒ€ì´ë¨¸ ì œê±° â†’ StopDashê°€ ì¤‘ë³µìœ¼ë¡œ ì‹¤í–‰ë˜ëŠ” ê²ƒ ë°©ì§€
 		GetWorldTimerManager().ClearTimer(DashTimerHandle);
 
-		StopDash();  // ¸ÕÀú ´ë½Ã ÁßÁö
+		StopDash();  // ë¨¼ì € ëŒ€ì‹œ ì¤‘ì§€
 		StartBackflip();
 	}
 }
@@ -199,15 +200,16 @@ void AMyCharacter::StartDash()
 
 	bIsDashing = true;
 
-	// ´ë½Ã ¼Óµµ·Î º¯°æ
+	// ëŒ€ì‹œ ì†ë„ë¡œ ë³€ê²½
 	GetCharacterMovement()->MaxWalkSpeed = DashSpeed;
 	GetCharacterMovement()->MaxAcceleration = DashAcceleration;
 	UE_LOG(LogMyCharacter, Log, TEXT("Current MaxWalkSpeed: %f"), GetCharacterMovement()->MaxWalkSpeed);
 
-	// °­Á¦ ÀÌµ¿
+	// ê°•ì œ ì´ë™(í•œ í”„ë ˆì„ ì…ë ¥)
 	AddMovementInput(GetActorForwardVector(), 1.0f);
 
-	// Å¸ÀÌ¸Ó·Î ÀÏÁ¤ ½Ã°£ µÚ ´Ù½Ã ¿ø·¡ ¼Óµµ·Î
+
+	// íƒ€ì´ë¨¸ë¡œ ëŒ€ì‰¬ ì¢…ë£Œ ì˜ˆì•½
 	GetWorldTimerManager().SetTimer(DashTimerHandle, this, &AMyCharacter::StopDash, DashDuration, false);
 }
 
@@ -239,35 +241,110 @@ void AMyCharacter::StartBackflip()
 		PlayAnimMontage(BackflipMontage);
 	}
 
-	// ÀÌµ¿ ¸·±â
 	GetCharacterMovement()->DisableMovement();
-
-	// ¾Ö´Ï¸ŞÀÌ¼Ç ¾ø´õ¶óµµ È¸Àü Á¤Áö È¿°ú
 	GetCharacterMovement()->Velocity = FVector::ZeroVector;
+	
+	// ===== ì „ë°© ë¶€ì±„ê¼´ ìŠ¤í”¼ì–´ íŠ¸ë ˆì´ìŠ¤ë¡œ 'ë²½/ë‚®ì€ ìƒì' ê°ì§€ =====
+	const FVector Origin = GetActorLocation();
 
-	// ===== ¾Õ ¹æÇâ Àå¾Ö¹° °¨Áö =====
-	FVector Start = GetActorLocation();
-	FVector End = Start + GetActorForwardVector() * 200.f;  // ¾Õ ¹æÇâ 200cm °¨Áö
+	FVector Forward = GetActorForwardVector();
+	Forward.Z = 0.f;
+	Forward.Normalize();
 
-	FHitResult HitResult;
-	FCollisionQueryParams TraceParams(FName(TEXT("BackflipTrace")), true, this);
+	// ìºë¦­í„° ë°œ ìœ„ì¹˜(Z) ì¶”ì •: ìº¡ìŠ í•˜í”„í•˜ì´íŠ¸ë¥¼ ì•Œê³  ìˆìœ¼ë©´ ë” ì •í™•
+	float CapsuleHalfHeight = 0.f;
+	if (const UCapsuleComponent* Cap = GetCapsuleComponent())
+	{
+		CapsuleHalfHeight = Cap->GetScaledCapsuleHalfHeight();
+	}
+	const float FeetZ = Origin.Z - CapsuleHalfHeight;
 
-	bool bObstacleAhead = GetWorld()->LineTraceSingleByChannel(
-		HitResult,
-		Start,
-		End,
-		ECC_Visibility,  // or ECC_GameTraceChannel1 if custom
-		TraceParams
-	);
+	// ê°ì§€í•  ì˜¤ë¸Œì íŠ¸ íƒ€ì…
+	TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjTypes;
+	TraceObjTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
+	TraceObjTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldDynamic));
+	TraceObjTypes.Add(UEngineTypes::ConvertToObjectType(ECC_PhysicsBody));
 
-	// Àå¾Ö¹° À¯¹«¿¡ µû¶ó ¹éÇÃ¸³ ½Ã°£ ¼³Á¤
-	float FlipDuration = bObstacleAhead ? 0.4f : 1.0f;
+	TArray<AActor*> Ignore;
+	Ignore.Add(this);
 
-	UE_LOG(LogMyCharacter, Log, TEXT("Backflip Duration: %f (ObstacleAhead: %s)"),
+	const int32 NumRays = 5; // -half ~ +half
+	const float HalfRad = FMath::DegreesToRadians(BackflipHalfAngleDeg);
+
+	// ì—¬ëŸ¬ ë†’ì´ì—ì„œ ê²€ì‚¬ (ë‚®ì€ ë°•ìŠ¤ ë³´ì •)
+	const TArray<float> TraceHeights = { 10.f, 30.f, 60.f, 100.f };
+
+	bool bObstacleAhead = false;
+
+	for (float Height : TraceHeights)
+	{
+		const FVector StartBase = Origin + FVector(0, 0, Height);
+
+		for (int32 i = 0; i < NumRays; ++i)
+		{
+			const float T = (NumRays == 1) ? 0.f : (i / float(NumRays - 1)); // 0..1
+			const float Angle = FMath::Lerp(-HalfRad, HalfRad, T);
+
+			const FVector Dir = UKismetMathLibrary::RotateAngleAxis(
+				Forward,
+				FMath::RadiansToDegrees(Angle),
+				FVector::UpVector
+			);
+
+			const FVector Start = StartBase;
+			const FVector End = Start + Dir * BackflipCheckRadius;
+
+			FHitResult Hit;
+			const bool bHit = UKismetSystemLibrary::SphereTraceSingleForObjects(
+				this,
+				Start, End,
+				BackflipSphereRadius,      // <-- ë‘ê»˜ ì¤˜ì„œ ë¹ˆí‹ˆ ê°ì†Œ
+				TraceObjTypes,
+				/*bTraceComplex*/ false,
+				Ignore,
+				EDrawDebugTrace::None,
+				Hit,
+				/*bIgnoreSelf*/ true
+			);
+
+			if (!bHit) continue;
+
+			// ë©´ ë²•ì„ 
+			const float AbsNZ = FMath::Abs(Hit.ImpactNormal.Z); // 0=ìˆ˜ì§, 1=ìˆ˜í‰
+
+			// 1) ë²½: ê±°ì˜ ìˆ˜ì§ë©´
+			const bool bIsWall = (AbsNZ < 0.4f);
+
+			// 2) ë‚®ì€ ìƒì ìœ—ë©´: ê±°ì˜ ìˆ˜í‰ë©´ + ë°œ ê¸°ì¤€ ë‚®ì€ ë†’ì´
+			const bool bIsLowTop =
+				(AbsNZ > 0.8f) &&
+				((Hit.ImpactPoint.Z - FeetZ) <= LowObstacleMaxHeight);
+
+			if (bIsWall || bIsLowTop)
+			{
+				bObstacleAhead = true;
+
+				// í•„ìš” ì‹œ ë””ë²„ê·¸:
+				// DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 10.f, 12, FColor::Red, false, 0.5f);
+				// DrawDebugLine(GetWorld(), Start, Hit.ImpactPoint, FColor::Red, false, 0.5f, 0, 2.f);
+				break;
+			}
+			// else // í•„ìš” ì‹œ ë””ë²„ê·¸:
+			// DrawDebugLine(GetWorld(), Start, End, FColor::Green, false, 0.5f, 0, 1.f);
+		}
+
+		if (bObstacleAhead)
+			break;
+	}
+
+	// ì¥ì• ë¬¼ ìœ ë¬´ì— ë”°ë¼ ë°±í”Œë¦½ ì‹œê°„ ê²°ì •
+	const float FlipDuration = bObstacleAhead ? 0.4f : 1.0f;
+
+	UE_LOG(LogMyCharacter, Log, TEXT("Backflip Duration: %f (ObstacleAheadInArc: %s)"),
 		FlipDuration,
 		bObstacleAhead ? TEXT("True") : TEXT("False"));
 
-	// 1ÃÊ µÚ ³¡³»±â
+	// 1ì´ˆ ë’¤ ëë‚´ê¸°
 	GetWorldTimerManager().SetTimer(
 		BackflipTimerHandle,
 		this,
@@ -288,11 +365,17 @@ void AMyCharacter::StartStun()
 {
 	bIsStunned = true;
 
-	// ¿òÁ÷ÀÓ ¸ØÃß±â
+	// ì›€ì§ì„ ë©ˆì¶”ê¸°
 	GetCharacterMovement()->DisableMovement();
 	UE_LOG(LogMyCharacter, Warning, TEXT("Stunned for 2 seconds"));
 
-	// Å¸ÀÌ¸Ó·Î º¹¿ø ¿¹¾à
+	// ì• ë‹ˆë©”ì´ì…˜ ì¬ìƒ
+	if (StunMontage)
+	{
+		PlayAnimMontage(StunMontage);
+	}
+
+	// íƒ€ì´ë¨¸ë¡œ ë³µì› ì˜ˆì•½
 	GetWorldTimerManager().SetTimer(StunTimerHandle, this, &AMyCharacter::EndStun, 2.0f, false);
 }
 
@@ -300,7 +383,12 @@ void AMyCharacter::EndStun()
 {
 	bIsStunned = false;
 
-	// °È±â »óÅÂ·Î º¹¿ø
+	// ê±·ê¸° ìƒíƒœë¡œ ë³µì›
 	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+
+	// ì•ˆì „: ëŒ€ì‰¬ ê´€ë ¨ ê¹”ë”í•˜ê²Œ ë¦¬ì…‹
+	bIsDashing = false;
+	GetWorldTimerManager().ClearTimer(DashTimerHandle);
+
 	UE_LOG(LogMyCharacter, Warning, TEXT("Stun ended"));
 }

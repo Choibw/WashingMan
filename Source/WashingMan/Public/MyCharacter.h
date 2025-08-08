@@ -61,10 +61,10 @@ protected:
 	float DefaultWalkSpeed = 500.f;
 
 	UPROPERTY(EditAnywhere, Category = "Dash")
-	float DashSpeed = 20000.f;
+	float DashSpeed = 3000.f;
 
 	UPROPERTY(EditAnywhere, Category = "Dash")
-	float DashDuration = 0.7f;
+	float DashDuration = 999999.9f;
 
 	UPROPERTY()
 	float DefaultAcceleration;
@@ -82,6 +82,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Backflip")
 	float BackflipDuration = 1.0f;
 
+	UPROPERTY(EditAnywhere, Category = "Backflip")
+	float BackflipCheckRadius = 200.f;   // 반구 반경
+
+	UPROPERTY(EditAnywhere, Category = "Backflip")
+	float BackflipHalfAngleDeg = 10.f;  // 좌우 반각(= 총 20도)
+
+	UPROPERTY(EditAnywhere, Category = "Backflip|Trace")
+	float BackflipSphereRadius = 30.f;        // 스피어 트레이스 반경 (두께)
+
+	UPROPERTY(EditAnywhere, Category = "Backflip|Trace")
+	float LowObstacleMaxHeight = 60.f;        // '낮은 박스' 상판 최대 높이(발 기준)
+
 	FTimerHandle BackflipTimerHandle;
 
 	// Stun 관련 변수
@@ -91,9 +103,11 @@ protected:
 	FTimerHandle StunTimerHandle;
 
 	// 애니메이션
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	UAnimMontage* BackflipMontage;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+	UAnimMontage* StunMontage;
 
 public:
 	// Sets default values for this character's properties
