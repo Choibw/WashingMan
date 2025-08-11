@@ -69,6 +69,16 @@ void AMyCharacter::BeginPlay()
 void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (bIsDashing)
+	{
+		const AController* C = GetController();
+		const FRotator CtrlRot = C ? C->GetControlRotation() : GetActorRotation();
+		const FRotator YawRot(0.f, CtrlRot.Yaw, 0.f);
+
+		const FVector ForwardDir = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
+		AddMovementInput(ForwardDir, 1.0f);   // W를 누른 효과
+	}
 }
 
 // Called to bind functionality to input
@@ -149,6 +159,13 @@ void AMyCharacter::Backflip()
 
 void AMyCharacter::DoMove(float Right, float Forward)
 {
+	if (bIsDashing)
+	{
+		// 키보드 입력 막기
+		Right = 0.f;                          
+		Forward = 0.f;                      
+	}
+
 	if (GetController() != nullptr)
 	{
 		// find out which way is forward
@@ -162,8 +179,10 @@ void AMyCharacter::DoMove(float Right, float Forward)
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
 		// add movement 
-		AddMovementInput(ForwardDirection, Forward);
-		AddMovementInput(RightDirection, Right);
+		if (Forward != 0.f) 
+			AddMovementInput(ForwardDirection, Forward);
+		if (Right != 0.f)
+			AddMovementInput(RightDirection, Right);
 	}
 }
 
