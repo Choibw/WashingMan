@@ -20,11 +20,14 @@ AATrashItem::AATrashItem()
     MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
     SetRootComponent(MeshComp);
 
-    // 배치용 기본 설정 (원하면 취향에 맞게 조정)
+    // ▶ 캐릭터를 '막지 않도록' 변경
+    MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);      // 물리 블록 X, 쿼리만
+    MeshComp->SetCollisionObjectType(ECC_WorldDynamic);
+    MeshComp->SetCollisionResponseToAllChannels(ECR_Ignore);          // 기본은 전부 무시
+    MeshComp->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block); // 라인 트레이스 등은 필요시 블록
+    MeshComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);   // Pawn은 Overlap(=막지 않음)
+
     MeshComp->SetMobility(EComponentMobility::Static);
-    MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-    MeshComp->SetCollisionObjectType(ECC_WorldStatic);
-    MeshComp->SetCollisionResponseToAllChannels(ECR_Block);
 }
 
 // Called when the game starts or when spawned
