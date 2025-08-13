@@ -53,6 +53,8 @@ AMyCharacter::AMyCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
+	GetCapsuleComponent()->SetGenerateOverlapEvents(true);
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
 }
 
 // Called when the game starts or when spawned
@@ -63,6 +65,20 @@ void AMyCharacter::BeginPlay()
 	DefaultWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
 	DefaultAcceleration = GetCharacterMovement()->MaxAcceleration;
 	GetCapsuleComponent()->OnComponentHit.AddDynamic(this, &AMyCharacter::OnCharacterHit);
+
+	// 1) 오버랩 이벤트 생성 보장
+	GetCapsuleComponent()->SetGenerateOverlapEvents(true);
+
+	// 2) WorldDynamic(=Trash Proximity) 과는 무조건 Overlap
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+
+	// 3) 지금 캡슐 상태를 로그로 찍어서 눈으로 확인
+	GetCapsuleComponent()->SetGenerateOverlapEvents(true);
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+
+	UE_LOG(LogTemp, Warning, TEXT("[Capsule] GenerateOverlap=%d, RespToWorldDynamic=%d"),
+		GetCapsuleComponent()->GetGenerateOverlapEvents(),
+		(int32)GetCapsuleComponent()->GetCollisionResponseToChannel(ECC_WorldDynamic));
 }
 
 // Called every frame

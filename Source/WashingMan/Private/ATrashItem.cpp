@@ -9,32 +9,49 @@
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
 #include "MyCharacter.h"
+#include "GameFramework/Pawn.h"
+#include "Engine/Engine.h" 
+
+DEFINE_LOG_CATEGORY_STATIC(LogTrash, Log, All);
 
 // Sets default values
 AATrashItem::AATrashItem()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
+    PrimaryActorTick.bCanEverTick = false;
 
-    // 화면에 보일 메쉬 컴포넌트 생성
+    Proximity = CreateDefaultSubobject<USphereComponent>(TEXT("Proximity"));
+    check(Proximity);
+    SetRootComponent(Proximity);
+
+    Proximity->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    Proximity->SetCollisionProfileName(TEXT("OverlapAllDynamic")); // 1) 프로필 먼저
+    Proximity->SetCollisionObjectType(ECC_WorldDynamic);           // 2) 그다음 타입을 확실히 WorldDynamic으로
+    Proximity->SetGenerateOverlapEvents(true);
+    Proximity->InitSphereRadius(150.f);
+
     MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
-    SetRootComponent(MeshComp);
-
-    // ▶ 캐릭터를 '막지 않도록' 변경
-    MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);      // 물리 블록 X, 쿼리만
-    MeshComp->SetCollisionObjectType(ECC_WorldDynamic);
-    MeshComp->SetCollisionResponseToAllChannels(ECR_Ignore);          // 기본은 전부 무시
-    MeshComp->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block); // 라인 트레이스 등은 필요시 블록
-    MeshComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);   // Pawn은 Overlap(=막지 않음)
-
-    MeshComp->SetMobility(EComponentMobility::Static);
+    check(MeshComp);
+    MeshComp->SetupAttachment(Proximity);
+    MeshComp->SetCollisionProfileName(TEXT("NoCollision"));
 }
 
 // Called when the game starts or when spawned
 void AATrashItem::BeginPlay()
 {
-	Super::BeginPlay();
-	
+    Super::BeginPlay();
+
+    Proximity->OnComponentBeginOverlap.AddDynamic(this, &AATrashItem::HandleBeginOverlap);
+    Proximity->OnComponentEndOverlap.AddDynamic(this, &AATrashItem::HandleEndOverlap);
+
+    UE_LOG(LogTrash, Warning, TEXT("[Proximity] ObjType=%d, Enabled=%d, RespToPawn=%d, Radius=%.1f"),
+        (int32)Proximity->GetCollisionObjectType(),
+        (int32)Proximity->GetCollisionEnabled(),
+        (int32)Proximity->GetCollisionResponseToChannel(ECC_Pawn),
+        Proximity->GetScaledSphereRadius());
+
+    // 시각 확인
+    DrawDebugSphere(GetWorld(), Proximity->GetComponentLocation(),
+        Proximity->GetScaledSphereRadius(), 16, FColor::Green, false, 5.f);
 }
 
 void AATrashItem::OnConstruction(const FTransform& Transform)
@@ -50,6 +67,10 @@ void AATrashItem::OnConstruction(const FTransform& Transform)
     {
         MeshComp->SetMaterial(0, OverrideMaterial);
     }
+    if (Proximity)
+    {
+        Proximity->SetSphereRadius(ProximityRadius);
+    }
 }
 
 // Called every frame
@@ -57,5 +78,32 @@ void AATrashItem::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+}
+
+void AATrashItem::HandleBeginOverlap(
+    UPrimitiveComponent* OverlappedComp,
+    AActor* OtherActor,
+    UPrimitiveComponent* OtherComp,
+    int32 /*OtherBodyIndex*/,
+    bool /*bFromSweep*/,
+    const FHitResult& /*SweepResult*/) 
+{
+    UE_LOG(LogTrash, Warning, TEXT("[Trash] BeginOverlap with Actor=%s, Comp=%s"),
+        *GetNameSafe(OtherActor), *GetNameSafe(OtherComp));
+    if (GEngine)
+        GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Green, TEXT("[Trash] ANY overlap begin"));
+}
+
+
+void AATrashItem::HandleEndOverlap(
+    UPrimitiveComponent* OverlappedComp,
+    AActor* OtherActor,
+    UPrimitiveComponent* OtherComp,
+    int32 /*OtherBodyIndex*/)
+{
+    UE_LOG(LogTrash, Warning, TEXT("[Trash] EndOverlap with Actor=%s, Comp=%s"),
+        *GetNameSafe(OtherActor), *GetNameSafe(OtherComp));
+    if (GEngine)
+        GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Yellow, TEXT("[Trash] ANY overlap end"));
 }
 
