@@ -7,6 +7,7 @@
 #include "Logging/LogMacros.h"
 #include "MyCharacter.generated.h"
 
+class AATrashItem;
 class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
@@ -20,7 +21,6 @@ class WASHINGMAN_API AMyCharacter : public ACharacter
 	
 	GENERATED_BODY()
 
-	
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
@@ -50,6 +50,9 @@ protected:
 	/** Keyboard Backflip Input Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* BackflipAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	UInputAction* CleanAction;
 
 	// Dash 관련 변수
 	FTimerHandle DashTimerHandle;
@@ -109,6 +112,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	UAnimMontage* StunMontage;
 
+	// 현재 쓰레기 근접 여부
+	UPROPERTY(BlueprintReadOnly, Category = "Interact", meta = (AllowPrivateAccess = "true"))
+	bool bNearTrash = false;
+
+	// 가까이에 있는 쓰레기(지금은 하나만 관리)
+	UPROPERTY() // GC 보호용
+		TWeakObjectPtr<AATrashItem> NearbyTrash;
+
 public:
 	// Sets default values for this character's properties
 	AMyCharacter();
@@ -149,6 +160,7 @@ protected:
 
 	void EndStun();
 
+	void HandleClean();
 
 public:
 
@@ -167,6 +179,14 @@ public:
 	UFUNCTION()
 	void OnCharacterHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
+	// 쓰레기 근접 인식 상태 조회 (UMG에서 바인딩 용)
+	UFUNCTION(BlueprintPure, Category = "Interact")
+	bool IsNearTrash() const { return bNearTrash; }
+
+	// 쓰레기 액터가 근접/이탈을 알릴 때 캐릭터가 받는 콜백
+	void NotifyEnterTrash(class AATrashItem* Trash);
+	void NotifyExitTrash(class AATrashItem* Trash);
 
 public:
 

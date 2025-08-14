@@ -14,6 +14,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "DrawDebugHelpers.h"
+#include "ATrashItem.h"
 
 DEFINE_LOG_CATEGORY(LogMyCharacter);
 
@@ -113,6 +114,9 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
+
+		// Cleaning
+		EnhancedInputComponent->BindAction(CleanAction, ETriggerEvent::Started, this, &AMyCharacter::HandleClean);
 	}
 	else
 	{
@@ -426,4 +430,60 @@ void AMyCharacter::EndStun()
 	GetWorldTimerManager().ClearTimer(DashTimerHandle);
 
 	UE_LOG(LogMyCharacter, Warning, TEXT("Stun ended"));
+}
+
+void AMyCharacter::HandleClean()
+{
+	if (!bNearTrash || !NearbyTrash.IsValid())
+	{
+		UE_LOG(LogMyCharacter, Log, TEXT("[Clean] Pressed but no active trash"));
+		return;
+	}
+
+	AATrashItem* Target = NearbyTrash.Get();
+
+	// 상태 먼저 정리(이후 EndOverlap이 안 올 수도 있으니)
+	NearbyTrash = nullptr;
+	bNearTrash = false;
+
+	// 실제 제거 (멀티플레이면 서버 권한에서만)
+	if (HasAuthority())
+	{
+		Target->Destroy();
+		UE_LOG(LogMyCharacter, Log, TEXT("[Clean] Destroyed %s"), *GetNameSafe(Target));
+	}
+	else
+	{
+		// TODO: 멀티 도입 시 서버 RPC로 요청
+		UE_LOG(LogMyCharacter, Warning, TEXT("[Clean] No authority; implement Server RPC for multiplayer"));
+	}
+
+	UE_LOG(LogMyCharacter, Log, TEXT("Clean!!"));
+}
+
+void AMyCharacter::NotifyEnterTrash(AATrashItem* Trash)
+{
+	NearbyTrash = Trash;            // 누가 가까이 있는지 보관
+	if (!bNearTrash)                // 상태 변화 때만 로그 찍기
+	{
+		bNearTrash = true;
+		UE_LOG(LogMyCharacter, Log, TEXT("IsNearTrash = TRUE (by %s)"), *GetNameSafe(Trash));
+		if (GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Green, TEXT("IsNearTrash = TRUE"));
+	}
+}
+
+void AMyCharacter::NotifyExitTrash(AATrashItem* Trash)
+{
+	if (NearbyTrash.Get() == Trash) // 나와 관련된 쓰레기가 벗어났을 때만 해제
+	{
+		NearbyTrash = nullptr;
+		if (bNearTrash)
+		{
+			bNearTrash = false;
+			UE_LOG(LogMyCharacter, Log, TEXT("IsNearTrash = FALSE"));
+			if (GEngine)
+				GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Yellow, TEXT("IsNearTrash = FALSE"));
+		}
+	}
 }

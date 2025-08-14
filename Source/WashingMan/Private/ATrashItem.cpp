@@ -11,6 +11,7 @@
 #include "MyCharacter.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/Engine.h" 
+#include "MyCharacter.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTrash, Log, All);
 
@@ -92,6 +93,12 @@ void AATrashItem::HandleBeginOverlap(
         *GetNameSafe(OtherActor), *GetNameSafe(OtherComp));
     if (GEngine)
         GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Green, TEXT("[Trash] ANY overlap begin"));
+
+    if (AMyCharacter* Char = Cast<AMyCharacter>(OtherActor))
+    {
+        Char->NotifyEnterTrash(this);
+        UE_LOG(LogTrash, Log, TEXT("[Trash] -> Character NotifyEnterTrash"));
+    }
 }
 
 
@@ -105,5 +112,11 @@ void AATrashItem::HandleEndOverlap(
         *GetNameSafe(OtherActor), *GetNameSafe(OtherComp));
     if (GEngine)
         GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Yellow, TEXT("[Trash] ANY overlap end"));
+
+    if (AMyCharacter* Char = Cast<AMyCharacter>(OtherActor))
+    {
+        Char->NotifyExitTrash(this);
+        UE_LOG(LogTrash, Log, TEXT("[Trash] -> Character NotifyExitTrash"));
+    }
 }
 
