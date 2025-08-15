@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ï»¿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -19,25 +19,38 @@ public:
 	/** Constructor */
 	AMyGameMode();
 
-    /** ÇöÀç ³²Àº ½Ã°£(ÃÊ). UI¿¡¼­ ¹ÙÀÎµùÇÒ ¼ö ÀÖ°Ô °ø°³ */
+    /** í˜„ì¬ ë‚¨ì€ ì‹œê°„(ì´ˆ). uiì—ì„œ ë°”ì¸ë”©í•  ìˆ˜ ìˆê²Œ ê³µê°œ */
     UPROPERTY(BlueprintReadOnly, Category = "Rules")
     int32 RemainingSeconds;
 
-    /** ¼öµ¿À¸·Î Áï½Ã °ÔÀÓ Á¾·áÇÏ°í ½ÍÀ» ¶§ È£Ãâ(µğ¹ö±×/Å×½ºÆ®¿ë) */
+    /** ì§€ê¸ˆê¹Œì§€ ì²­ì†Œí•œ ê°œìˆ˜ â€“ ui ë°”ì¸ë”©ìš© */
+    UPROPERTY(BlueprintReadOnly, Category = "Rules")
+    int32 CleanedCount = 0;
+
+    /** ìºë¦­í„°ê°€ ì“°ë ˆê¸°ë¥¼ ì²­ì†Œí–ˆì„ ë•Œ í˜¸ì¶œ */
+    UFUNCTION(BlueprintCallable, Category = "Rules")
+    void NotifyTrashCleaned();
+
+    /** ìˆ˜ë™ìœ¼ë¡œ ì¦‰ì‹œ ê²Œì„ ì¢…ë£Œí•˜ê³  ì‹¶ì„ ë•Œ í˜¸ì¶œ(ë””ë²„ê·¸/í…ŒìŠ¤íŠ¸ìš©) */
     UFUNCTION(BlueprintCallable, Category = "Rules")
     void EndGame();
 
 protected:
     virtual void BeginPlay() override;
 
-    /** 1ÃÊ¸¶´Ù È£ÃâµÇ´Â Æ½ ÇÔ¼ö */
+    /** 1ì´ˆë§ˆë‹¤ í˜¸ì¶œë˜ëŠ” í‹± í•¨ìˆ˜ */
     UFUNCTION()
     void OnCountdownTick();
 
-    /** ÃÑ Á¦ÇÑ ½Ã°£(ÃÊ) */
+    /** ì´ ì œí•œ ì‹œê°„(ì´ˆ) */
     UPROPERTY(EditDefaultsOnly, Category = "Rules", meta = (ClampMin = "1", UIMin = "1"))
     int32 TimeLimitSeconds = 30;
 
+    /** ëª©í‘œ ì²­ì†Œ ê°œìˆ˜ â€“ ì—ë””í„°ì—ì„œ ì¡°ì ˆ */
+    UPROPERTY(EditAnywhere, Category = "Rules", meta = (ClampMin = "1", UIMin = "1"))
+    int32 CleanTargetCount = 3;
+
 private:
     FTimerHandle CountdownHandle;
+    FTimerHandle OneFrameDelayHandle; // ê¸°ì¡´ ì§€ì—° íƒ€ì´ë¨¸ ìœ ì§€
 };

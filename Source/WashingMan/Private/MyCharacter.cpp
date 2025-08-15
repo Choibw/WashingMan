@@ -15,6 +15,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "DrawDebugHelpers.h"
 #include "ATrashItem.h"
+#include "MyGameMode.h"
 
 DEFINE_LOG_CATEGORY(LogMyCharacter);
 
@@ -445,6 +446,12 @@ void AMyCharacter::HandleClean()
 	// 상태 먼저 정리(이후 EndOverlap이 안 올 수도 있으니)
 	NearbyTrash = nullptr;
 	bNearTrash = false;
+
+	// GameMode에 청소했다고 알림
+	if (AMyGameMode* GM = GetWorld()->GetAuthGameMode<AMyGameMode>())
+	{
+		GM->NotifyTrashCleaned();
+	}
 
 	// 실제 제거 (멀티플레이면 서버 권한에서만)
 	if (HasAuthority())

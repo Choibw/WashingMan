@@ -20,9 +20,13 @@ void AMyGameMode::BeginPlay()
 {
     Super::BeginPlay();
 
-    // 다음 틱에 실행 → 블루프린트가 뭘 해도 최종값을 우리가 덮음
-    FTimerHandle Th;
-    GetWorldTimerManager().SetTimer(Th, [this]()
+    // 카운트다운 시작
+    RemainingSeconds = TimeLimitSeconds;
+    GetWorldTimerManager().SetTimer(
+        CountdownHandle, this, &AMyGameMode::OnCountdownTick, 1.0f, true, 1.0f);
+
+    // (네가 넣어둔) 한 프레임 지연 캡슐 보정: 필요하면 유지
+    GetWorldTimerManager().SetTimer(OneFrameDelayHandle, [this]()
         {
             if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
             {
@@ -30,19 +34,12 @@ void AMyGameMode::BeginPlay()
                 {
                     if (UCapsuleComponent* Cap = P->FindComponentByClass<UCapsuleComponent>())
                     {
-                        // 안전빵: 최소한 쿼리는 켜두기
                         Cap->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-
-                        // 테스트용: 일단 전부 무시 → WorldDynamic만 Overlap로
                         Cap->SetCollisionResponseToAllChannels(ECR_Ignore);
                         Cap->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
-
-                        // 오버랩 이벤트 생성 보장
                         Cap->SetGenerateOverlapEvents(true);
 
-                        UE_LOG(LogTemp, Warning, TEXT("[Capsule-DELAY] Profile=%s, Enabled=%d, GenOverlap=%d, RespToWorldDynamic=%d"),
-                            *Cap->GetCollisionProfileName().ToString(),
-                            (int32)Cap->GetCollisionEnabled(),
+                        UE_LOG(LogTemp, Warning, TEXT("[Capsule-DELAY] GenOverlap=%d, RespToWorldDynamic=%d"),
                             Cap->GetGenerateOverlapEvents(),
                             (int32)Cap->GetCollisionResponseToChannel(ECC_WorldDynamic));
                     }
@@ -65,6 +62,21 @@ void AMyGameMode::OnCountdownTick()
     if (RemainingSeconds <= 0)
     {
         // 타이머 정지 후 종료 처리
+        GetWorldTimerManager().ClearTimer(CountdownHandle);
+        EndGame();
+    }
+}
+
+void AMyGameMode::NotifyTrashCleaned()
+{
+    CleanedCount++;
+
+    if (GEngine)
+        GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Cyan,
+            FString::Printf(TEXT("Cleaned: %d / %d"), CleanedCount, CleanTargetCount));
+
+    if (CleanedCount >= CleanTargetCount)
+    {
         GetWorldTimerManager().ClearTimer(CountdownHandle);
         EndGame();
     }
