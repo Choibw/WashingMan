@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ï»¿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -54,7 +54,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	UInputAction* CleanAction;
 
-	// Dash °ü·Ã º¯¼ö
+	// Dash ê´€ë ¨ ë³€ìˆ˜
 	FTimerHandle DashTimerHandle;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dash")
@@ -75,7 +75,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dash")
 	float DashAcceleration = 999999.f;
 
-	// Backflip °ü·Ã º¯¼ö
+	// Backflip ê´€ë ¨ ë³€ìˆ˜
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Backflip")
 	bool bIsBackflipping = false;
 
@@ -86,38 +86,49 @@ protected:
 	float BackflipDuration = 1.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Backflip")
-	float BackflipCheckRadius = 200.f;   // ¹İ±¸ ¹İ°æ
+	float BackflipCheckRadius = 200.f;   // ë°˜êµ¬ ë°˜ê²½
 
 	UPROPERTY(EditAnywhere, Category = "Backflip")
-	float BackflipHalfAngleDeg = 10.f;  // ÁÂ¿ì ¹İ°¢(= ÃÑ 20µµ)
+	float BackflipHalfAngleDeg = 10.f;  // ì¢Œìš° ë°˜ê°(= ì´ 20ë„)
 
 	UPROPERTY(EditAnywhere, Category = "Backflip|Trace")
-	float BackflipSphereRadius = 30.f;        // ½ºÇÇ¾î Æ®·¹ÀÌ½º ¹İ°æ (µÎ²²)
+	float BackflipSphereRadius = 30.f;        // ìŠ¤í”¼ì–´ íŠ¸ë ˆì´ìŠ¤ ë°˜ê²½ (ë‘ê»˜)
 
 	UPROPERTY(EditAnywhere, Category = "Backflip|Trace")
-	float LowObstacleMaxHeight = 60.f;        // '³·Àº ¹Ú½º' »óÆÇ ÃÖ´ë ³ôÀÌ(¹ß ±âÁØ)
+	float LowObstacleMaxHeight = 60.f;        // 'ë‚®ì€ ë°•ìŠ¤' ìƒíŒ ìµœëŒ€ ë†’ì´(ë°œ ê¸°ì¤€)
+
+	UPROPERTY(EditAnywhere, Category = "Backflip|Timing")
+	float BackflipDesiredNoObstacle = 1.0f;   // ì¥ì• ë¬¼ ì—†ì„ ë•Œ ëª©í‘œ ì‹œê°„
+
+	UPROPERTY(EditAnywhere, Category = "Backflip|Timing")
+	float BackflipDesiredWithObstacle = 0.4f; // ì¥ì• ë¬¼ ìˆì„ ë•Œ ëª©í‘œ ì‹œê°„
+
 
 	FTimerHandle BackflipTimerHandle;
 
-	// Stun °ü·Ã º¯¼ö
+	// Stun ê´€ë ¨ ë³€ìˆ˜
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stun")
 	bool bIsStunned = false;
 
+	// ìŠ¤í„´ ì´ ì§€ì†ì‹œê°„(ì´ˆ) â€” ì—ë””í„°ì—ì„œ ì¡°ì ˆ
+	UPROPERTY(EditAnywhere, Category = "Stun|Timing", meta = (ClampMin = "0.05", UIMin = "0.05"))
+	float StunDesiredDuration = 2.0f;
+
 	FTimerHandle StunTimerHandle;
 
-	// ¾Ö´Ï¸ŞÀÌ¼Ç
+	// ì• ë‹ˆë©”ì´ì…˜
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	UAnimMontage* BackflipMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	UAnimMontage* StunMontage;
 
-	// ÇöÀç ¾²·¹±â ±ÙÁ¢ ¿©ºÎ
+	// í˜„ì¬ ì“°ë ˆê¸° ê·¼ì ‘ ì—¬ë¶€
 	UPROPERTY(BlueprintReadOnly, Category = "Interact", meta = (AllowPrivateAccess = "true"))
 	bool bNearTrash = false;
 
-	// °¡±îÀÌ¿¡ ÀÖ´Â ¾²·¹±â(Áö±İÀº ÇÏ³ª¸¸ °ü¸®)
-	UPROPERTY() // GC º¸È£¿ë
+	// ê°€ê¹Œì´ì— ìˆëŠ” ì“°ë ˆê¸°(ì§€ê¸ˆì€ í•˜ë‚˜ë§Œ ê´€ë¦¬)
+	UPROPERTY() // GC ë³´í˜¸ìš©
 		TWeakObjectPtr<AATrashItem> NearbyTrash;
 
 public:
@@ -180,11 +191,11 @@ public:
 	void OnCharacterHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 		UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
-	// ¾²·¹±â ±ÙÁ¢ ÀÎ½Ä »óÅÂ Á¶È¸ (UMG¿¡¼­ ¹ÙÀÎµù ¿ë)
+	// ì“°ë ˆê¸° ê·¼ì ‘ ì¸ì‹ ìƒíƒœ ì¡°íšŒ (UMGì—ì„œ ë°”ì¸ë”© ìš©)
 	UFUNCTION(BlueprintPure, Category = "Interact")
 	bool IsNearTrash() const { return bNearTrash; }
 
-	// ¾²·¹±â ¾×ÅÍ°¡ ±ÙÁ¢/ÀÌÅ»À» ¾Ë¸± ¶§ Ä³¸¯ÅÍ°¡ ¹Ş´Â Äİ¹é
+	// ì“°ë ˆê¸° ì•¡í„°ê°€ ê·¼ì ‘/ì´íƒˆì„ ì•Œë¦´ ë•Œ ìºë¦­í„°ê°€ ë°›ëŠ” ì½œë°±
 	void NotifyEnterTrash(class AATrashItem* Trash);
 	void NotifyExitTrash(class AATrashItem* Trash);
 

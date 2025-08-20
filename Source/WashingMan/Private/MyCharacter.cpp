@@ -276,11 +276,6 @@ void AMyCharacter::StartBackflip()
 
 	bIsBackflipping = true;
 
-	if (BackflipMontage)
-	{
-		PlayAnimMontage(BackflipMontage);
-	}
-
 	GetCharacterMovement()->DisableMovement();
 	GetCharacterMovement()->Velocity = FVector::ZeroVector;
 	
@@ -377,21 +372,37 @@ void AMyCharacter::StartBackflip()
 			break;
 	}
 
-	// 장애물 유무에 따라 백플립 시간 결정
-	const float FlipDuration = bObstacleAhead ? 0.4f : 1.0f;
+	// ===== 분기별 목표 재생시간 -> 몽타주 배속 계산/재생 + 타이머 동기화 =====
+	const float DesiredDuration = bObstacleAhead ? BackflipDesiredWithObstacle
+		: BackflipDesiredNoObstacle;
+	const float FinalDesired = FMath::Max(0.05f, DesiredDuration); // 0 방지
 
-	UE_LOG(LogMyCharacter, Log, TEXT("Backflip Duration: %f (ObstacleAheadInArc: %s)"),
-		FlipDuration,
-		bObstacleAhead ? TEXT("True") : TEXT("False"));
+	float PlayRate = 1.f;
+	if (BackflipMontage)
+	{
+		const float RawLen = BackflipMontage->GetPlayLength(); // 배속 1.0 기준 길이
+		if (RawLen > KINDA_SMALL_NUMBER)
+		{
+			PlayRate = RawLen / FinalDesired;                   // 핵심 공식
+			// 선택: 너무 과한 배속 방지 (원하면 조절)
+			PlayRate = FMath::Clamp(PlayRate, 0.1f, 5.0f);
+		}
 
-	// 1초 뒤 끝내기
+		PlayAnimMontage(BackflipMontage, PlayRate);
+	}
+
+	// 입력/잠금 해제 타이밍도 '원하는 시간'과 동일하게
+	GetWorldTimerManager().ClearTimer(BackflipTimerHandle);
 	GetWorldTimerManager().SetTimer(
 		BackflipTimerHandle,
 		this,
 		&AMyCharacter::EndBackflip,
-		FlipDuration,
+		FinalDesired,
 		false
 	);
+
+	UE_LOG(LogMyCharacter, Log, TEXT("Backflip Desired=%.3f, PlayRate=%.3f, Obstacle=%s"),
+		FinalDesired, PlayRate, bObstacleAhead ? TEXT("TRUE") : TEXT("FALSE"));
 }
 
 void AMyCharacter::EndBackflip()
@@ -409,14 +420,28 @@ void AMyCharacter::StartStun()
 	GetCharacterMovement()->DisableMovement();
 	UE_LOG(LogMyCharacter, Warning, TEXT("Stunned for 2 seconds"));
 
+	const float Desired = FMath::Max(0.05f, StunDesiredDuration);
+	float PlayRate = 1.f;
+
 	// 애니메이션 재생
 	if (StunMontage)
 	{
-		PlayAnimMontage(StunMontage);
+		const float RawLen = StunMontage->GetPlayLength(); // 1.0배속 기준 길이
+		if (RawLen > KINDA_SMALL_NUMBER)
+		{
+			PlayRate = RawLen / Desired;                   // 핵심 공식
+			PlayRate = FMath::Clamp(PlayRate, 0.1f, 5.0f); // (선택) 과도한 배속 방지
+		}
+
+		// 원하는 시간에 딱 맞게 재생
+		PlayAnimMontage(StunMontage, PlayRate);
 	}
 
 	// 타이머로 복원 예약
-	GetWorldTimerManager().SetTimer(StunTimerHandle, this, &AMyCharacter::EndStun, 2.0f, false);
+	GetWorldTimerManager().ClearTimer(StunTimerHandle);
+	GetWorldTimerManager().SetTimer(StunTimerHandle, this, &AMyCharacter::EndStun, Desired, false);
+
+	UE_LOG(LogMyCharacter, Log, TEXT("Stun Desired=%.3f, PlayRate=%.3f"), Desired, PlayRate);
 }
 
 void AMyCharacter::EndStun()

@@ -20,20 +20,21 @@ AATrashItem::AATrashItem()
 {
     PrimaryActorTick.bCanEverTick = false;
 
-    Proximity = CreateDefaultSubobject<USphereComponent>(TEXT("Proximity"));
-    check(Proximity);
-    SetRootComponent(Proximity);
+    // MeshComp 먼저 생성하고 루트로 지정
+    MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
+    SetRootComponent(MeshComp);
+    MeshComp->SetCollisionProfileName(TEXT("NoCollision"));
+    MeshComp->bRenderInMainPass = true;
+    MeshComp->SetHiddenInGame(false);
 
+    // Proximity는 자식으로 붙임
+    Proximity = CreateDefaultSubobject<USphereComponent>(TEXT("Proximity"));
+    Proximity->SetupAttachment(MeshComp);
     Proximity->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-    Proximity->SetCollisionProfileName(TEXT("OverlapAllDynamic")); // 1) 프로필 먼저
-    Proximity->SetCollisionObjectType(ECC_WorldDynamic);           // 2) 그다음 타입을 확실히 WorldDynamic으로
+    Proximity->SetCollisionProfileName(TEXT("OverlapAllDynamic"));
+    Proximity->SetCollisionObjectType(ECC_WorldDynamic);
     Proximity->SetGenerateOverlapEvents(true);
     Proximity->InitSphereRadius(150.f);
-
-    MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
-    check(MeshComp);
-    MeshComp->SetupAttachment(Proximity);
-    MeshComp->SetCollisionProfileName(TEXT("NoCollision"));
 }
 
 // Called when the game starts or when spawned
