@@ -123,6 +123,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	UAnimMontage* StunMontage;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	UAnimMontage* DashSlideMontage;
+
 	// 현재 쓰레기 근접 여부
 	UPROPERTY(BlueprintReadOnly, Category = "Interact", meta = (AllowPrivateAccess = "true"))
 	bool bNearTrash = false;

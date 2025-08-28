@@ -96,6 +96,8 @@ void AMyCharacter::Tick(float DeltaTime)
 
 		const FVector ForwardDir = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
 		AddMovementInput(ForwardDir, 1.0f);   // W를 누른 효과
+
+		UE_LOG(LogMyCharacter, Log, TEXT("Tick!!"));
 	}
 }
 
@@ -150,7 +152,7 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 
 void AMyCharacter::Look(const FInputActionValue& Value)
 {
-	if (bIsBackflipping || bIsStunned) return;
+	if (bIsBackflipping || bIsStunned || bIsDashing) return;
 
 	// input is a Vector2D
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
@@ -248,6 +250,10 @@ void AMyCharacter::StartDash()
 	// 강제 이동(한 프레임 입력)
 	AddMovementInput(GetActorForwardVector(), 1.0f);
 
+	if (DashSlideMontage)
+	{
+		PlayAnimMontage(DashSlideMontage, 1.0f);
+	}
 
 	// 타이머로 대쉬 종료 예약
 	GetWorldTimerManager().SetTimer(DashTimerHandle, this, &AMyCharacter::StopDash, DashDuration, false);
@@ -263,6 +269,11 @@ void AMyCharacter::StopDash()
 
 	GetCharacterMovement()->MaxWalkSpeed = DefaultWalkSpeed;
 	GetCharacterMovement()->MaxAcceleration = DefaultAcceleration;
+
+	if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
+	{
+		Anim->Montage_Stop(0.2f, DashSlideMontage); // 0.2초 블렌드아웃
+	}
 
 	UE_LOG(LogMyCharacter, Log, TEXT("Dash Ended - Speed = %f"), GetCharacterMovement()->MaxWalkSpeed);
 }
