@@ -477,17 +477,22 @@ void AMyCharacter::HandleClean()
 		return;
 	}
 
+	// 가방(손) 용량 체크
+	if (CarriedCount >= MaxCarry)
+	{
+		if (GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, TEXT("가방이 가득 찼습니다 (3/3)"));
+		return;
+	}
+
 	AATrashItem* Target = NearbyTrash.Get();
 
 	// 상태 먼저 정리(이후 EndOverlap이 안 올 수도 있으니)
 	NearbyTrash = nullptr;
 	bNearTrash = false;
 
-	// GameMode에 청소했다고 알림
-	if (AMyGameMode* GM = GetWorld()->GetAuthGameMode<AMyGameMode>())
-	{
-		GM->NotifyTrashCleaned();
-	}
+	// 소지 개수만 증가
+	++CarriedCount;
 
 	// 실제 제거 (멀티플레이면 서버 권한에서만)
 	if (HasAuthority())
@@ -501,7 +506,7 @@ void AMyCharacter::HandleClean()
 		UE_LOG(LogMyCharacter, Warning, TEXT("[Clean] No authority; implement Server RPC for multiplayer"));
 	}
 
-	UE_LOG(LogMyCharacter, Log, TEXT("Clean!!"));
+	UE_LOG(LogMyCharacter, Log, TEXT("Clean (Carry %d/%d)"), CarriedCount, MaxCarry);
 }
 
 void AMyCharacter::NotifyEnterTrash(AATrashItem* Trash)

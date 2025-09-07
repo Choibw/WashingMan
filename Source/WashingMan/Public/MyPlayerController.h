@@ -9,7 +9,7 @@
 class UInputMappingContext;
 
 /**
- * 
+ *
  */
 UCLASS()
 class WASHINGMAN_API AMyPlayerController : public APlayerController

@@ -135,6 +135,16 @@ protected:
 		TWeakObjectPtr<AATrashItem> NearbyTrash;
 
 public:
+
+	// 얼마나 들고 있는지 (UI 바인딩용)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Trash", meta = (AllowPrivateAccess = "true"))
+	int32 CarriedCount = 0;
+
+	// 한 번에 들 수 있는 최대치 (밸런싱용)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trash", meta = (ClampMin = "1", UIMin = "1"))
+	int32 MaxCarry = 3;
+
+public:
 	// Sets default values for this character's properties
 	AMyCharacter();
 
@@ -201,6 +211,28 @@ public:
 	// 쓰레기 액터가 근접/이탈을 알릴 때 캐릭터가 받는 콜백
 	void NotifyEnterTrash(class AATrashItem* Trash);
 	void NotifyExitTrash(class AATrashItem* Trash);
+
+	UFUNCTION(BlueprintPure, Category = "Trash")
+	bool CanCarryMore() const { return CarriedCount < MaxCarry; }
+
+	// 소지 개수 증가 (안전 체크 포함, true=증가 성공)
+	UFUNCTION(BlueprintCallable, Category = "Trash")
+	bool TryAddCarry(int32 Amount = 1)
+	{
+		if (Amount <= 0) return false;
+		if (CarriedCount + Amount > MaxCarry) return false;
+		CarriedCount += Amount;
+		return true;
+	}
+
+	// 모두 비우고 몇 개 비웠는지 반환 (드랍존에서 사용)
+	UFUNCTION(BlueprintCallable, Category = "Trash")
+	int32 EmptyCarry()
+	{
+		const int32 Out = CarriedCount;
+		CarriedCount = 0;
+		return Out;
+	}
 
 public:
 
