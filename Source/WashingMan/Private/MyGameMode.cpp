@@ -25,7 +25,7 @@ void AMyGameMode::BeginPlay()
     GetWorldTimerManager().SetTimer(
         CountdownHandle, this, &AMyGameMode::OnCountdownTick, 1.0f, true, 1.0f);
 
-    // (네가 넣어둔) 한 프레임 지연 캡슐 보정: 필요하면 유지
+    // 한 프레임 지연 캡슐 보정: 유지 필요성 체크 필요 **********************
     GetWorldTimerManager().SetTimer(OneFrameDelayHandle, [this]()
         {
             if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
@@ -66,7 +66,7 @@ void AMyGameMode::OnCountdownTick()
         EndGame();
     }
 }
-
+    
 void AMyGameMode::NotifyTrashCleaned()
 {
     CleanedCount++;

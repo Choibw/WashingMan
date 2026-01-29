@@ -3,15 +3,15 @@
 
 #include "ATrashItem.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SphereComponent.h"
 #include "Materials/MaterialInterface.h"
 #include "Engine/StaticMesh.h"
-#include "Components/SphereComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
 #include "MyCharacter.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/Engine.h" 
-#include "MyCharacter.h"
+#include "Logging/LogMacros.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTrash, Log, All);
 
@@ -73,13 +73,6 @@ void AATrashItem::OnConstruction(const FTransform& Transform)
     {
         Proximity->SetSphereRadius(ProximityRadius);
     }
-}
-
-// Called every frame
-void AATrashItem::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
 }
 
 void AATrashItem::HandleBeginOverlap(

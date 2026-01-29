@@ -15,6 +15,15 @@ struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMyCharacter, Log, All);
 
+UENUM(BlueprintType)
+enum class EMyActionState : uint8
+{
+	Normal     UMETA(DisplayName = "Normal"),
+	Dashing    UMETA(DisplayName = "Dashing"),
+	Backflip   UMETA(DisplayName = "Backflip"),
+	Stunned    UMETA(DisplayName = "Stunned"),
+};
+
 UCLASS()
 class WASHINGMAN_API AMyCharacter : public ACharacter
 {
@@ -51,14 +60,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* BackflipAction;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* CleanAction;
 
 	// Dash 관련 변수
-	FTimerHandle DashTimerHandle;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dash")
-	bool bIsDashing = false;
+	FTimerHandle DashTimerHandle;
 
 	UPROPERTY(EditAnywhere, Category = "Dash")
 	float DefaultWalkSpeed = 500.f;
@@ -75,9 +82,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dash")
 	float DashAcceleration = 999999.f;
 
+	// 대시 이동 방향 (월드 기준)
+	UPROPERTY(VisibleAnywhere, Category = "Dash")
+	FVector DashDirection;
+
 	// Backflip 관련 변수
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Backflip")
-	bool bIsBackflipping = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Backflip")
 	float BackflipDistance = 600.f;
@@ -107,8 +116,6 @@ protected:
 	FTimerHandle BackflipTimerHandle;
 
 	// Stun 관련 변수
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stun")
-	bool bIsStunned = false;
 
 	// 스턴 총 지속시간(초) — 에디터에서 조절
 	UPROPERTY(EditAnywhere, Category = "Stun|Timing", meta = (ClampMin = "0.05", UIMin = "0.05"))
@@ -131,15 +138,15 @@ protected:
 	bool bNearTrash = false;
 
 	// 가까이에 있는 쓰레기(지금은 하나만 관리)
-	UPROPERTY() // GC 보호용
-		TWeakObjectPtr<AATrashItem> NearbyTrash;
+	UPROPERTY()
+	TWeakObjectPtr<AATrashItem> NearbyTrash;
 
-public:
-
+private:
 	// 얼마나 들고 있는지 (UI 바인딩용)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Trash", meta = (AllowPrivateAccess = "true"))
 	int32 CarriedCount = 0;
 
+protected:
 	// 한 번에 들 수 있는 최대치 (밸런싱용)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trash", meta = (ClampMin = "1", UIMin = "1"))
 	int32 MaxCarry = 3;
@@ -234,6 +241,28 @@ public:
 		return Out;
 	}
 
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", meta = (AllowPrivateAccess = "true"))
+	EMyActionState ActionState = EMyActionState::Normal;
+
+	void SetActionState(EMyActionState NewState);
+
+	void EnterState(EMyActionState State);
+	void ExitState(EMyActionState State);
+
+	// 편의 함수(가드 조건 간결화용)
+	bool IsNormal()   const { return ActionState == EMyActionState::Normal; }
+	bool IsDashing()  const { return ActionState == EMyActionState::Dashing; }
+	bool IsBackflip() const { return ActionState == EMyActionState::Backflip; }
+	bool IsStunned()  const { return ActionState == EMyActionState::Stunned; }
+
+	bool CanEnterState(EMyActionState NewState) const;
+
+	bool CanMove() const;
+	bool CanLook() const;
+	bool CanDash() const;
+	bool CanBackflip() const;
+
 public:
 
 	/** Returns CameraBoom subobject **/
@@ -242,4 +271,7 @@ public:
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 
+	int32 GetCarriedCount() const { return CarriedCount; }
+	void  SetCarriedCount(int32 NewCount) { CarriedCount = NewCount; }
+	void  ClearCarriedCount() { CarriedCount = 0; }
 };

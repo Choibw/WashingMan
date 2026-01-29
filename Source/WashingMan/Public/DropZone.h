@@ -21,9 +21,4 @@ protected:
 	UBoxComponent* TriggerBox;
 
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
-
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-
 };

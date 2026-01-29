@@ -46,7 +46,7 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Rules", meta = (ClampMin = "1", UIMin = "1"))
     int32 TimeLimitSeconds = 30;
 
-    /** 목표 청소 개수 – 에디터에서 조절 */
+    /** 목표 청소 개수 */
     UPROPERTY(EditAnywhere, Category = "Rules", meta = (ClampMin = "1", UIMin = "1"))
     int32 CleanTargetCount = 3;
 

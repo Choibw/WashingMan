@@ -8,9 +8,6 @@
 
 class UStaticMeshComponent;
 class USphereComponent;
-class UNiagaraSystem;
-class USoundBase;
-class AMyCharacter;
 
 UCLASS()
 class WASHINGMAN_API AATrashItem : public AActor
@@ -45,10 +42,6 @@ public:
 	// 감지 반경(에디터에서 조절)
 	UPROPERTY(EditAnywhere, Category = "Interact", meta = (ClampMin = "30", UIMin = "30"))
 	float ProximityRadius = 120.f;
-
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
 
 private:
 	UFUNCTION()

@@ -20,37 +20,27 @@ ADropZone::ADropZone()
     TriggerBox->SetCollisionResponseToAllChannels(ECR_Ignore);
     TriggerBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
     TriggerBox->SetGenerateOverlapEvents(true);
-
 }
 
 void ADropZone::NotifyActorBeginOverlap(AActor* OtherActor)
 {
     if (AMyCharacter* Ch = Cast<AMyCharacter>(OtherActor))
     {
-        const int32 Carry = Ch->CarriedCount;
+        const int32 Carry = Ch->GetCarriedCount();
         if (Carry <= 0) return;
 
+        // 내가 속한 월드의 GameMode가 내가 만든 AMyGameMode면 아래 함수 실행
         if (AMyGameMode* GM = Cast<AMyGameMode>(UGameplayStatics::GetGameMode(this)))
         {
-            // 헤더를 안 고쳤으니까 CleanedCount++ 함수 그대로 활용
             for (int32 i = 0; i < Carry; ++i)
             {
                 GM->NotifyTrashCleaned();
             }
         }
 
-        Ch->CarriedCount = 0;
+        Ch->ClearCarriedCount();
 
         if (GEngine)
             GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Green, TEXT("드랍 완료! (손 비워짐)"));
     }
 }
-
-
-// Called every frame
-void ADropZone::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}
-

@@ -6,9 +6,9 @@
 #include "Engine/LocalPlayer.h"
 #include "InputMappingContext.h"
 
-void AMyPlayerController::SetupInputComponent()
+void AMyPlayerController::BeginPlay()
 {
-	Super::SetupInputComponent();
+	Super::BeginPlay();
 
 	// Add Input Mapping Contexts
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
@@ -21,5 +21,26 @@ void AMyPlayerController::SetupInputComponent()
 			}
 		}
 	}
+}
+
+void AMyPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    // 나중에 확장: 깔끔하게 제거 (메뉴/전환/리로드 시 중복 방지)
+    if (ULocalPlayer* LP = GetLocalPlayer())
+    {
+        if (UEnhancedInputLocalPlayerSubsystem* Subsys =
+            LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+        {
+            for (UInputMappingContext* IMC : DefaultMappingContexts)
+            {
+                if (IMC)
+                {
+                    Subsys->RemoveMappingContext(IMC);
+                }
+            }
+        }
+    }
+
+    Super::EndPlay(EndPlayReason);
 }
 
