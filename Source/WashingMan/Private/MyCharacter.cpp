@@ -1,6 +1,4 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "MyCharacter.h"
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
@@ -85,6 +83,12 @@ void AMyCharacter::BeginPlay()
 	// WorldDynamic(=Trash Proximity) 과는 무조건 Overlap -> 추후 커스텀 채널로 리팩토링
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
 
+	if (FollowCamera)
+	{
+		DefaultFOV = FollowCamera->FieldOfView;
+		TargetFOV = DefaultFOV;
+	}
+
 	auto* Cap = GetCapsuleComponent();
 	UE_LOG(LogMyCharacter, Warning, TEXT("[CapsuleRuntime] Enabled=%d ObjType=%d ObstacleResp=%d WorldStaticResp=%d"),
 		(int32)Cap->GetCollisionEnabled(),
@@ -102,6 +106,25 @@ void AMyCharacter::Tick(float DeltaTime)
 	if (IsDashing())
 	{
 		AddMovementInput(DashDirection, 1.0f);   // W를 누른 효과
+	}
+
+	if (!FollowCamera) return;
+
+	const float CurrentFOV = FollowCamera->FieldOfView;
+
+	// 대시 중이거나, 아직 목표 FOV에 도달하지 않았을 때만 보간
+	const bool bNeedInterp = !FMath::IsNearlyEqual(CurrentFOV, TargetFOV, 0.05f);
+		
+	if (bNeedInterp)
+	{
+		const float NewFOV = FMath::FInterpTo(
+			CurrentFOV,
+			TargetFOV,
+			DeltaTime,
+			FOVInterpSpeed
+		);
+
+		FollowCamera->SetFieldOfView(NewFOV);
 	}
 }
 
@@ -186,6 +209,8 @@ void AMyCharacter::EnterState(EMyActionState State)
 
 	case EMyActionState::Dashing:
 	{
+		TargetFOV = DefaultFOV + DashFOVOffset;
+
 		// 대시 방향 구하기
 		DashDirection = GetActorForwardVector();
 		DashDirection.Z = 0.f;
@@ -360,6 +385,14 @@ void AMyCharacter::EnterState(EMyActionState State)
 		GetCharacterMovement()->DisableMovement();
 		UE_LOG(LogMyCharacter, Warning, TEXT("Stunned for %.2f seconds"), StunDesiredDuration);
 
+		if (APlayerController* PC = Cast<APlayerController>(GetController()))
+		{
+			if (StunCameraShake)
+			{
+				PC->ClientStartCameraShake(StunCameraShake, 1.0f);
+			}
+		}
+
 		const float Desired = FMath::Max(0.05f, StunDesiredDuration);
 		float PlayRate = 1.f;
 
@@ -400,6 +433,8 @@ void AMyCharacter::ExitState(EMyActionState State)
 
 	case EMyActionState::Dashing:
 	{
+		TargetFOV = DefaultFOV;
+
 		// 타이머 정리 (이미 만료됐어도 safe)
 		GetWorldTimerManager().ClearTimer(DashTimerHandle);
 

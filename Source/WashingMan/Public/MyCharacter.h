@@ -63,6 +63,20 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* CleanAction;
 
+	// 카메라 관련 변수
+
+	UPROPERTY(EditAnywhere, Category = "Camera|FOV")
+	float DashFOVOffset = 12.0f;   // 기본 FOV에서 +몇 도 할지
+
+	UPROPERTY(EditAnywhere, Category = "Camera|FOV")
+	float FOVInterpSpeed = 10.0f;  // 값 클수록 빨리 전환(부드럽게 8~15 추천)
+
+	float DefaultFOV = 90.0f;
+	float TargetFOV = 90.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Camera|Shake")
+	TSubclassOf<UCameraShakeBase> StunCameraShake;
+
 	// Dash 관련 변수
 
 	FTimerHandle DashTimerHandle;
