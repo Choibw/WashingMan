@@ -1,6 +1,4 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "MyCharacter.h"
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
@@ -63,6 +61,28 @@ void AMyCharacter::BeginPlay()
 	DefaultWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
 	DefaultAcceleration = GetCharacterMovement()->MaxAcceleration;
 	GetCapsuleComponent()->OnComponentHit.AddDynamic(this, &AMyCharacter::OnCharacterHit);
+<<<<<<< HEAD
+=======
+
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Block);
+
+	// WorldDynamic(=Trash Proximity) 과는 무조건 Overlap -> 추후 커스텀 채널로 리팩토링
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+
+	if (FollowCamera)
+	{
+		DefaultFOV = FollowCamera->FieldOfView;
+		TargetFOV = DefaultFOV;
+	}
+
+	auto* Cap = GetCapsuleComponent();
+	UE_LOG(LogMyCharacter, Warning, TEXT("[CapsuleRuntime] Enabled=%d ObjType=%d ObstacleResp=%d WorldStaticResp=%d"),
+		(int32)Cap->GetCollisionEnabled(),
+		(int32)Cap->GetCollisionObjectType(),
+		(int32)Cap->GetCollisionResponseToChannel(ECC_GameTraceChannel2),   // <- 너가 쓴 번호
+		(int32)Cap->GetCollisionResponseToChannel(ECC_WorldStatic)
+	);
+>>>>>>> 3b5c2f7 (대쉬, 스턴 연출 추가)
 }
 
 // Called every frame
@@ -78,6 +98,25 @@ void AMyCharacter::Tick(float DeltaTime)
 
 		const FVector ForwardDir = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
 		AddMovementInput(ForwardDir, 1.0f);   // W를 누른 효과
+	}
+
+	if (!FollowCamera) return;
+
+	const float CurrentFOV = FollowCamera->FieldOfView;
+
+	// 대시 중이거나, 아직 목표 FOV에 도달하지 않았을 때만 보간
+	const bool bNeedInterp = !FMath::IsNearlyEqual(CurrentFOV, TargetFOV, 0.05f);
+		
+	if (bNeedInterp)
+	{
+		const float NewFOV = FMath::FInterpTo(
+			CurrentFOV,
+			TargetFOV,
+			DeltaTime,
+			FOVInterpSpeed
+		);
+
+		FollowCamera->SetFieldOfView(NewFOV);
 	}
 }
 
@@ -116,6 +155,323 @@ void AMyCharacter::OnCharacterHit(UPrimitiveComponent* HitComp, AActor* OtherAct
 	}
 }
 
+<<<<<<< HEAD
+=======
+bool AMyCharacter::CanEnterState(EMyActionState NewState) const
+{
+	// 공통: 스턴 중에는 (원하면) Normal로만 복귀 허용 같은 정책 가능
+	if (IsStunned() && NewState != EMyActionState::Normal)
+		return false;
+
+	switch (NewState)
+	{
+	case EMyActionState::Normal:   return true;
+	case EMyActionState::Dashing:  return IsNormal();   // 노말에서만 대시
+	case EMyActionState::Backflip: return IsDashing();  // 대시 중에만 백플립
+	case EMyActionState::Stunned:  return true;         // 언제든 스턴 가능
+	default: return false;
+	}
+}
+
+bool AMyCharacter::CanMove() const { return !IsBackflip() && !IsStunned(); }
+bool AMyCharacter::CanLook() const { return !IsBackflip() && !IsStunned() && !IsDashing(); }
+bool AMyCharacter::CanDash() const { return IsNormal(); }
+bool AMyCharacter::CanBackflip() const { return IsDashing(); }
+
+
+void AMyCharacter::SetActionState(EMyActionState NewState)
+{
+	if (ActionState == NewState) return;
+	if (!CanEnterState(NewState)) return;
+
+	ExitState(ActionState);
+	ActionState = NewState;
+	EnterState(ActionState);
+
+	UE_LOG(LogMyCharacter, Log, TEXT("[State] -> %d"), (int32)ActionState);
+}
+
+void AMyCharacter::EnterState(EMyActionState State)
+{
+	switch (State)
+	{
+	case EMyActionState::Normal:
+		// (아직 비움) 다음 단계에서 Normal 복귀 시 처리(이동모드 복원 등)를 여기로 모을 예정
+		break;
+
+	case EMyActionState::Dashing:
+	{
+		TargetFOV = DefaultFOV + DashFOVOffset;
+
+		// 대시 방향 구하기
+		DashDirection = GetActorForwardVector();
+		DashDirection.Z = 0.f;
+		DashDirection.Normalize();
+		UE_LOG(LogMyCharacter, Log, TEXT("DashDirection locked: %s"), *DashDirection.ToString());
+
+		// 대시 속도로 변경
+		GetCharacterMovement()->MaxWalkSpeed = DashSpeed;
+		GetCharacterMovement()->MaxAcceleration = DashAcceleration;
+		UE_LOG(LogMyCharacter, Log, TEXT("Current MaxWalkSpeed: %f"), GetCharacterMovement()->MaxWalkSpeed);
+
+		// 강제 이동(한 프레임 입력)
+		AddMovementInput(GetActorForwardVector(), 1.0f);
+
+		// 몽타주
+		if (DashSlideMontage)
+			PlayAnimMontage(DashSlideMontage, 1.0f);
+
+		// 타이머로 대시 종료 예약 (StopDash는 이제 상태전환만 함)
+		GetWorldTimerManager().SetTimer(
+			DashTimerHandle,
+			this,
+			&AMyCharacter::StopDash,
+			DashDuration,
+			false
+		);
+
+		UE_LOG(LogMyCharacter, Log, TEXT("Dash Started - Speed = %f"), GetCharacterMovement()->MaxWalkSpeed);
+		break;
+	}
+
+	case EMyActionState::Backflip:
+	{
+		UE_LOG(LogMyCharacter, Log, TEXT("Backflip Started!"));
+
+		GetCharacterMovement()->DisableMovement();
+		GetCharacterMovement()->Velocity = FVector::ZeroVector;
+
+		// ===== 전방 부채꼴 스피어 트레이스로 '벽/낮은 상자' 감지 =====
+		const FVector Origin = GetActorLocation();
+
+		FVector Forward = GetActorForwardVector();
+		Forward.Z = 0.f;
+		Forward.Normalize();
+
+		// 캐릭터 발 위치(Z) 추정: 캡슐 하프하이트를 알고 있으면 더 정확
+		float CapsuleHalfHeight = 0.f;
+		if (const UCapsuleComponent* Cap = GetCapsuleComponent())
+		{
+			CapsuleHalfHeight = Cap->GetScaledCapsuleHalfHeight();
+		}
+		const float FeetZ = Origin.Z - CapsuleHalfHeight;
+
+		// 감지할 오브젝트 타입
+		TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjTypes;
+		TraceObjTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel2)); // Obstacle
+
+		TArray<AActor*> Ignore;
+		Ignore.Add(this);
+
+		const int32 NumRays = 5; // -half ~ +half
+		const float HalfRad = FMath::DegreesToRadians(BackflipHalfAngleDeg);
+
+		// 여러 높이에서 검사 (낮은 박스 보정)
+		const TArray<float> TraceHeights = { 30.f, 60.f, 100.f };
+
+		bool bObstacleAhead = false;
+
+		for (float Height : TraceHeights)
+		{
+			const FVector StartBase = FVector(
+				Origin.X,
+				Origin.Y,
+				FeetZ + Height
+			);
+
+			for (int32 i = 0; i < NumRays; ++i)
+			{
+				const float T = (NumRays == 1) ? 0.f : (i / float(NumRays - 1)); // 0..1
+				const float Angle = FMath::Lerp(-HalfRad, HalfRad, T);
+
+				const FVector Dir = UKismetMathLibrary::RotateAngleAxis(
+					Forward,
+					FMath::RadiansToDegrees(Angle),
+					FVector::UpVector
+				);
+
+				const FVector Start = StartBase;
+				const FVector End = Start + Dir * BackflipCheckRadius;
+
+				FHitResult Hit;
+				const bool bHit = UKismetSystemLibrary::SphereTraceSingleForObjects(
+					this,
+					Start, End,
+					BackflipSphereRadius,      // <-- 두께 줘서 빈틈 감소
+					TraceObjTypes,
+					/*bTraceComplex*/ false,
+					Ignore,
+					EDrawDebugTrace::None,
+					Hit,
+					/*bIgnoreSelf*/ true
+				);
+
+				if (!bHit) continue;
+
+				// 면 법선
+				const float AbsNZ = FMath::Abs(Hit.ImpactNormal.Z); // 0=수직, 1=수평
+
+				// 1) 벽: 거의 수직면
+				const bool bIsWall = (AbsNZ < 0.4f);
+
+				// 2) 낮은 상자 윗면: 거의 수평면 + 발 기준 낮은 높이
+				const bool bIsLowTop =
+					(AbsNZ > 0.8f) &&
+					((Hit.ImpactPoint.Z - FeetZ) <= LowObstacleMaxHeight);
+
+				if (bIsWall || bIsLowTop)
+				{
+					bObstacleAhead = true;
+
+					// 필요 시 디버그:
+					// DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 10.f, 12, FColor::Red, false, 0.5f);
+					// DrawDebugLine(GetWorld(), Start, Hit.ImpactPoint, FColor::Red, false, 0.5f, 0, 2.f);
+					break;
+				}
+				// else // 필요 시 디버그:
+				// DrawDebugLine(GetWorld(), Start, End, FColor::Green, false, 0.5f, 0, 1.f);
+			}
+
+			if (bObstacleAhead)
+				break;
+		}
+
+		// ===== 분기별 목표 재생시간 -> 몽타주 배속 계산/재생 + 타이머 동기화 =====
+		const float DesiredDuration = bObstacleAhead ? BackflipDesiredWithObstacle
+			: BackflipDesiredNoObstacle;
+		const float FinalDesired = FMath::Max(0.05f, DesiredDuration); // 0 방지
+
+		float PlayRate = 1.f;
+		if (BackflipMontage)
+		{
+			const float RawLen = BackflipMontage->GetPlayLength(); // 배속 1.0 기준 길이
+			if (RawLen > KINDA_SMALL_NUMBER)
+			{
+				PlayRate = RawLen / FinalDesired;                   // 핵심 공식
+				// 너무 과한 배속 방지
+				PlayRate = FMath::Clamp(PlayRate, 0.1f, 5.0f);
+			}
+
+			PlayAnimMontage(BackflipMontage, PlayRate);
+		}
+
+		// 입력/잠금 해제 타이밍도 '원하는 시간'과 동일하게
+		GetWorldTimerManager().ClearTimer(BackflipTimerHandle);
+		GetWorldTimerManager().SetTimer(
+			BackflipTimerHandle,
+			this,
+			&AMyCharacter::EndBackflip,
+			FinalDesired,
+			false
+		);
+
+		UE_LOG(LogMyCharacter, Log, TEXT("Backflip Desired=%.3f, PlayRate=%.3f, Obstacle=%s"),
+			FinalDesired, PlayRate, bObstacleAhead ? TEXT("TRUE") : TEXT("FALSE"));
+
+		break;
+	}
+
+	case EMyActionState::Stunned:
+	{
+		// 움직임 멈추기
+		GetCharacterMovement()->DisableMovement();
+		UE_LOG(LogMyCharacter, Warning, TEXT("Stunned for %.2f seconds"), StunDesiredDuration);
+
+		if (APlayerController* PC = Cast<APlayerController>(GetController()))
+		{
+			if (StunCameraShake)
+			{
+				PC->ClientStartCameraShake(StunCameraShake, 1.0f);
+			}
+		}
+
+		const float Desired = FMath::Max(0.05f, StunDesiredDuration);
+		float PlayRate = 1.f;
+
+		// 애니메이션 재생
+		if (StunMontage)
+		{
+			const float RawLen = StunMontage->GetPlayLength(); // 1.0배속 기준 길이
+			if (RawLen > KINDA_SMALL_NUMBER)
+			{
+				PlayRate = RawLen / Desired;                   // 핵심 공식
+				PlayRate = FMath::Clamp(PlayRate, 0.1f, 5.0f); // 과도한 배속 방지
+			}
+
+			// 원하는 시간에 딱 맞게 재생
+			PlayAnimMontage(StunMontage, PlayRate);
+		}
+
+		// 타이머로 복원 예약
+		GetWorldTimerManager().ClearTimer(StunTimerHandle);
+		GetWorldTimerManager().SetTimer(StunTimerHandle, this, &AMyCharacter::EndStun, Desired, false);
+
+		UE_LOG(LogMyCharacter, Log, TEXT("Stun Desired=%.3f, PlayRate=%.3f"), Desired, PlayRate);
+
+		break;
+	}
+
+	default:
+		break;
+	}
+}
+
+void AMyCharacter::ExitState(EMyActionState State)
+{
+	switch (State)
+	{
+	case EMyActionState::Normal:
+		break;
+
+	case EMyActionState::Dashing:
+	{
+		TargetFOV = DefaultFOV;
+
+		// 타이머 정리 (이미 만료됐어도 safe)
+		GetWorldTimerManager().ClearTimer(DashTimerHandle);
+
+		// 속도/가속 원복
+		GetCharacterMovement()->MaxWalkSpeed = DefaultWalkSpeed;
+		GetCharacterMovement()->MaxAcceleration = DefaultAcceleration;
+
+		// 몽타주 정리
+		if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
+		{
+			Anim->Montage_Stop(0.2f, DashSlideMontage);
+		}
+
+		UE_LOG(LogMyCharacter, Log, TEXT("Dash Ended - Speed = %f"), GetCharacterMovement()->MaxWalkSpeed);
+		break;
+	}
+
+	case EMyActionState::Backflip:
+	{
+		UE_LOG(LogMyCharacter, Log, TEXT("Backflip Ended!"));
+
+		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+
+		break;
+	}
+
+	case EMyActionState::Stunned:
+	{
+		// 걷기 상태로 복원
+		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+
+		// 안전: 대쉬 관련 깔끔하게 리셋
+		GetWorldTimerManager().ClearTimer(DashTimerHandle);
+
+		UE_LOG(LogMyCharacter, Warning, TEXT("Stun ended"));
+
+		break;
+	}
+
+	default:
+		break;
+	}
+}
+
+>>>>>>> 3b5c2f7 (대쉬, 스턴 연출 추가)
 void AMyCharacter::Move(const FInputActionValue& Value)
 {
 	if (bIsBackflipping || bIsStunned) return;
