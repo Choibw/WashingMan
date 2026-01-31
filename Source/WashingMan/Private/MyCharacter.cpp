@@ -425,7 +425,18 @@ void AMyCharacter::ExitState(EMyActionState State)
 
 	case EMyActionState::Dashing:
 	{
-		TargetFOV = DefaultFOV;
+		TargetFOV = DefaultFOV - EndKickOffset;
+
+		GetWorldTimerManager().ClearTimer(EndKickTimer);
+		GetWorldTimerManager().SetTimer(
+			EndKickTimer,
+			[this]()
+			{
+				TargetFOV = DefaultFOV;
+			},
+			EndKickDuration,
+			false
+		);
 
 		// 타이머 정리 (이미 만료됐어도 safe)
 		GetWorldTimerManager().ClearTimer(DashTimerHandle);

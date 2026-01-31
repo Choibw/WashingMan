@@ -61,12 +61,16 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Camera|FOV")
 	float DashFOVOffset = 12.0f;   // 기본 FOV에서 +몇 도 할지
+	float EndKickOffset = 8.f;       // 대시 끝날 때 
+	float EndKickDuration = 1.f;   // 0.05~0.12초 추천
 
 	UPROPERTY(EditAnywhere, Category = "Camera|FOV")
 	float FOVInterpSpeed = 10.0f;  // 값 클수록 빨리 전환(부드럽게 8~15 추천)
 
 	float DefaultFOV = 90.0f;
 	float TargetFOV = 90.0f;
+
+	FTimerHandle EndKickTimer; 
 
 	UPROPERTY(EditAnywhere, Category = "Camera|Shake")
 	TSubclassOf<UCameraShakeBase> StunCameraShake;
