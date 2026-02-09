@@ -17,6 +17,16 @@ void AMyAIController::BeginPlay()
 {
     Super::BeginPlay();
 
+    if (BehaviorTreeAsset)
+    {
+        RunBehaviorTree(BehaviorTreeAsset);
+        UE_LOG(LogTemp, Warning, TEXT("[AI] RunBehaviorTree OK"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[AI] BehaviorTreeAsset is NULL"));
+    }
+
     StartWander();
     StartPlayerProximityCheck();
 }

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AIController.h"
+#include "BehaviorTree/BehaviorTree.h"
 #include "MyAIController.generated.h"
 
 UENUM(BlueprintType)
@@ -65,4 +66,8 @@ private:
     void StartPlayerProximityCheck();
     void StopPlayerProximityCheck();
     void CheckPlayerProximity();
+
+    // BehaviorTree ¿¡¼Â
+    UPROPERTY(EditDefaultsOnly, Category = "AI")
+    TObjectPtr<UBehaviorTree> BehaviorTreeAsset;
 };
