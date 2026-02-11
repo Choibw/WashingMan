@@ -31,6 +31,8 @@ EBTNodeResult::Type UBTTask_SetRandomPatrolLocation::ExecuteTask(UBehaviorTreeCo
     if (!BB) return EBTNodeResult::Failed;
 
     BB->SetValueAsVector(PatrolLocationKey.SelectedKeyName, Out.Location);
+    UE_LOG(LogTemp, Warning, TEXT("[AI] Patrol new location"));
+
     return EBTNodeResult::Succeeded;
 }
 

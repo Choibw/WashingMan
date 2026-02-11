@@ -45,12 +45,6 @@ void AATrashItem::BeginPlay()
     Proximity->OnComponentBeginOverlap.AddDynamic(this, &AATrashItem::HandleBeginOverlap);
     Proximity->OnComponentEndOverlap.AddDynamic(this, &AATrashItem::HandleEndOverlap);
 
-    UE_LOG(LogTrash, Warning, TEXT("[Proximity] ObjType=%d, Enabled=%d, RespToPawn=%d, Radius=%.1f"),
-        (int32)Proximity->GetCollisionObjectType(),
-        (int32)Proximity->GetCollisionEnabled(),
-        (int32)Proximity->GetCollisionResponseToChannel(ECC_Pawn),
-        Proximity->GetScaledSphereRadius());
-
     // 시각 확인
     DrawDebugSphere(GetWorld(), Proximity->GetComponentLocation(),
         Proximity->GetScaledSphereRadius(), 16, FColor::Green, false, 5.f);
