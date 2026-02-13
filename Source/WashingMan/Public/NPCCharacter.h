@@ -6,6 +6,8 @@
 #include "GameFramework/Character.h"
 #include "NPCCharacter.generated.h"
 
+class APatrolArea;
+
 UCLASS()
 class WASHINGMAN_API ANPCCharacter : public ACharacter
 {
@@ -14,6 +16,9 @@ class WASHINGMAN_API ANPCCharacter : public ACharacter
 public:
 	// Sets default values for this character's properties
 	ANPCCharacter();
+
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "AI|Patrol")
+	APatrolArea* PatrolArea = nullptr;
 
 protected:
 	// Called when the game starts or when spawned

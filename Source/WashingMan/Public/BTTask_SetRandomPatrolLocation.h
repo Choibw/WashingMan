@@ -18,10 +18,11 @@ public:
 protected:
     virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 
-public:
-    UPROPERTY(EditAnywhere, Category = "Patrol")
-    float Radius = 1000.f;
-
+    // 입력: PatrolArea(Object)
     UPROPERTY(EditAnywhere, Category = "Blackboard")
-    FBlackboardKeySelector PatrolLocationKey;
+    struct FBlackboardKeySelector PatrolAreaKey;
+
+    // 출력: PatrolLocation(Vector)
+    UPROPERTY(EditAnywhere, Category = "Blackboard")
+    struct FBlackboardKeySelector PatrolLocationKey;
 };
