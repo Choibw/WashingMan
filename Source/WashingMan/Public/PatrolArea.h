@@ -5,6 +5,8 @@
 #include "GameFramework/Actor.h"
 #include "PatrolArea.generated.h"
 
+class ANPCCharacter;
+
 UCLASS()
 class WASHINGMAN_API APatrolArea : public AActor
 {
@@ -25,6 +27,13 @@ public:
     UPROPERTY(EditAnywhere, Category = "Debug", meta = (ClampMin = "0.02", ClampMax = "5.0"))
     float DebugDrawInterval = 0.2f;
 
+    UPROPERTY(EditAnywhere, Category = "Spawn")
+    TSubclassOf<ANPCCharacter> NPCClass;
+
+    // npc 스폰 주기
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spawn")
+    float SpawnDelay = 3.f;
+
 protected:
     virtual void BeginPlay() override;
 
@@ -32,6 +41,10 @@ private:
     void DrawDebugPatrolArea();
 
     FTimerHandle DebugDrawTimerHandle;
+
+    void SpawnNPC();
+
+    FTimerHandle SpawnTimerHandle;
 
 #if WITH_EDITORONLY_DATA
     UPROPERTY(VisibleAnywhere, Category = "Patrol")

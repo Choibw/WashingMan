@@ -10,12 +10,6 @@
 #include "TimerManager.h"
 
 
-AMyGameMode::AMyGameMode()
-{
-	//DefaultPawnClass = AMyCharacter::StaticClass();
-	//PlayerControllerClass = AMyPlayerController::StaticClass();
-}
-
 void AMyGameMode::BeginPlay()
 {
     Super::BeginPlay();

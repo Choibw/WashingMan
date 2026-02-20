@@ -3,6 +3,10 @@
 
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
+#include "NPCCharacter.h"         
+#include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
+#include "NavigationSystem.h"
 
 #if WITH_EDITORONLY_DATA
 #include "Components/BillboardComponent.h"
@@ -40,6 +44,14 @@ void APatrolArea::BeginPlay()
         // 시작하자마자 1번 그려주기(첫 interval 기다리지 않게)
         DrawDebugPatrolArea();
     }
+
+    GetWorldTimerManager().SetTimer(
+        SpawnTimerHandle,
+        this,
+        &APatrolArea::SpawnNPC,
+        SpawnDelay,
+        true
+    );
 }
 
 void APatrolArea::DrawDebugPatrolArea()
@@ -60,4 +72,50 @@ void APatrolArea::DrawDebugPatrolArea()
         0,
         2.0f
     );
+}
+
+void APatrolArea::SpawnNPC()
+{
+    // 네비게이션 위의 area내 위치에 랜덤 스폰
+    if (!NPCClass)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("PatrolArea: NPCClass is null"));
+        return;
+    }
+
+    UWorld* World = GetWorld();
+    if (!World) return;
+
+    UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(World);
+    if (!NavSys) return;
+
+    const FVector Origin = GetActorLocation();
+
+    FVector SpawnLoc = Origin;
+
+    FNavLocation Out;
+    if (NavSys->GetRandomReachablePointInRadius(Origin, Radius, Out))
+    {
+        SpawnLoc = Out.Location;
+    }
+
+    const FRotator SpawnRot = FRotator::ZeroRotator;
+
+    FActorSpawnParameters Params;
+    Params.SpawnCollisionHandlingOverride =
+        ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+    // 액터 생성
+    ANPCCharacter* NPC = World->SpawnActor<ANPCCharacter>(NPCClass, SpawnLoc, SpawnRot, Params);
+
+    if (NPC)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Spawned NPC: %s at %s"), *NPC->GetName(), *SpawnLoc.ToString());
+        NPC->SetPatrolArea(this);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("SpawnActor failed"));
+    }
+
 }

@@ -20,6 +20,11 @@ public:
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "AI|Patrol")
 	APatrolArea* PatrolArea = nullptr;
 
+	void SetPatrolArea(APatrolArea* InArea)
+	{
+		PatrolArea = InArea;
+	}
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

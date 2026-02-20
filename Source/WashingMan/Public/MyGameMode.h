@@ -16,9 +16,6 @@ class WASHINGMAN_API AMyGameMode : public AGameModeBase
 
 public:
 
-	/** Constructor */
-	AMyGameMode();
-
     /** 현재 남은 시간(초). ui에서 바인딩할 수 있게 공개 */
     UPROPERTY(BlueprintReadOnly, Category = "Rules")
     int32 RemainingSeconds;
