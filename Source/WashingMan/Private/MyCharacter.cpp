@@ -67,6 +67,25 @@ AMyCharacter::AMyCharacter()
 		Cap->SetGenerateOverlapEvents(true);
 		Cap->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
 	}
+
+	static ConstructorHelpers::FClassFinder<UUserWidget> AlertWidgetClass(TEXT("/Game/UI/Widgets/WBP_Alert"));
+	if (AlertWidgetClass.Succeeded())
+	{
+		AlertWidgetComp = CreateDefaultSubobject<UWidgetComponent>(TEXT("WC_Alert"));
+		AlertWidgetComp->SetupAttachment(RootComponent);
+
+		AlertWidgetComp->SetWidgetClass(AlertWidgetClass.Class);
+		AlertWidgetComp->SetWidgetSpace(EWidgetSpace::Screen);   // 항상 카메라를 향함
+		AlertWidgetComp->SetDrawAtDesiredSize(true);
+
+		AlertWidgetComp->SetRelativeLocation(FVector(0.f, 20.f, 130.f)); // 머리 위 + 살짝 우측
+		AlertWidgetComp->SetVisibility(false);                  // 기본 숨김 (HiddenInGame 대체)
+	}
+	else
+	{
+		// 못 찾았을 때 로그로 확인
+		UE_LOG(LogMyCharacter, Warning, TEXT("WBP_Alert not found. Check widget path."));
+	}
 }
 
 // Called when the game starts or when spawned
@@ -106,6 +125,29 @@ void AMyCharacter::Tick(float DeltaTime)
 	if (IsDashing())
 	{
 		AddMovementInput(DashDirection, 1.0f);   // W를 누른 효과
+
+		ObstacleCheckAccum += DeltaTime;
+
+		// 20Hz (0.05) 마다 검사
+		if (ObstacleCheckAccum >= 0.05f)
+		{
+			ObstacleCheckAccum -= 0.05f;
+			bObstacleAheadDash = IsObstacleAhead();
+		}
+
+		if (AlertWidgetComp && (bObstacleAheadDash != bPrevObstacleAheadDash))
+		{
+			AlertWidgetComp->SetVisibility(bObstacleAheadDash);
+			bPrevObstacleAheadDash = bObstacleAheadDash;
+		}
+	}
+	else
+	{
+		if (AlertWidgetComp && bPrevObstacleAheadDash)
+		{
+			AlertWidgetComp->SetVisibility(false);
+			bPrevObstacleAheadDash = false;
+		}
 	}
 
 	if (!FollowCamera) return;
@@ -246,103 +288,10 @@ void AMyCharacter::EnterState(EMyActionState State)
 	{
 		UE_LOG(LogMyCharacter, Log, TEXT("Backflip Started!"));
 
+		bool bObstacleAhead = IsObstacleAhead();
+
 		GetCharacterMovement()->DisableMovement();
 		GetCharacterMovement()->Velocity = FVector::ZeroVector;
-
-		// ===== 전방 부채꼴 스피어 트레이스로 '벽/낮은 상자' 감지 =====
-		const FVector Origin = GetActorLocation();
-
-		FVector Forward = GetActorForwardVector();
-		Forward.Z = 0.f;
-		Forward.Normalize();
-
-		// 캐릭터 발 위치(Z) 추정: 캡슐 하프하이트를 알고 있으면 더 정확
-		float CapsuleHalfHeight = 0.f;
-		if (const UCapsuleComponent* Cap = GetCapsuleComponent())
-		{
-			CapsuleHalfHeight = Cap->GetScaledCapsuleHalfHeight();
-		}
-		const float FeetZ = Origin.Z - CapsuleHalfHeight;
-
-		// 감지할 오브젝트 타입
-		TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjTypes;
-		TraceObjTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel2)); // Obstacle
-
-		TArray<AActor*> Ignore;
-		Ignore.Add(this);
-
-		const int32 NumRays = 5; // -half ~ +half
-		const float HalfRad = FMath::DegreesToRadians(BackflipHalfAngleDeg);
-
-		// 여러 높이에서 검사 (낮은 박스 보정)
-		const TArray<float> TraceHeights = { 30.f, 60.f, 100.f };
-
-		bool bObstacleAhead = false;
-
-		for (float Height : TraceHeights)
-		{
-			const FVector StartBase = FVector(
-				Origin.X,
-				Origin.Y,
-				FeetZ + Height
-			);
-
-			for (int32 i = 0; i < NumRays; ++i)
-			{
-				const float T = (NumRays == 1) ? 0.f : (i / float(NumRays - 1)); // 0..1
-				const float Angle = FMath::Lerp(-HalfRad, HalfRad, T);
-
-				const FVector Dir = UKismetMathLibrary::RotateAngleAxis(
-					Forward,
-					FMath::RadiansToDegrees(Angle),
-					FVector::UpVector
-				);
-
-				const FVector Start = StartBase;
-				const FVector End = Start + Dir * BackflipCheckRadius;
-
-				FHitResult Hit;
-				const bool bHit = UKismetSystemLibrary::SphereTraceSingleForObjects(
-					this,
-					Start, End,
-					BackflipSphereRadius,      // <-- 두께 줘서 빈틈 감소
-					TraceObjTypes,
-					/*bTraceComplex*/ false,
-					Ignore,
-					EDrawDebugTrace::None,
-					Hit,
-					/*bIgnoreSelf*/ true
-				);
-
-				if (!bHit) continue;
-
-				// 면 법선
-				const float AbsNZ = FMath::Abs(Hit.ImpactNormal.Z); // 0=수직, 1=수평
-
-				// 1) 벽: 거의 수직면
-				const bool bIsWall = (AbsNZ < 0.4f);
-
-				// 2) 낮은 상자 윗면: 거의 수평면 + 발 기준 낮은 높이
-				const bool bIsLowTop =
-					(AbsNZ > 0.8f) &&
-					((Hit.ImpactPoint.Z - FeetZ) <= LowObstacleMaxHeight);
-
-				if (bIsWall || bIsLowTop)
-				{
-					bObstacleAhead = true;
-
-					// 필요 시 디버그:
-					// DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 10.f, 12, FColor::Red, false, 0.5f);
-					// DrawDebugLine(GetWorld(), Start, Hit.ImpactPoint, FColor::Red, false, 0.5f, 0, 2.f);
-					break;
-				}
-				// else // 필요 시 디버그:
-				// DrawDebugLine(GetWorld(), Start, End, FColor::Green, false, 0.5f, 0, 1.f);
-			}
-
-			if (bObstacleAhead)
-				break;
-		}
 
 		// ===== 분기별 목표 재생시간 -> 몽타주 배속 계산/재생 + 타이머 동기화 =====
 		const float DesiredDuration = bObstacleAhead ? BackflipDesiredWithObstacle
@@ -433,6 +382,12 @@ void AMyCharacter::ExitState(EMyActionState State)
 
 	case EMyActionState::Dashing:
 	{
+		// 대시가 끝나면 상태 리셋
+
+		// 앞 장애물 검사 변수들 초기화
+		ObstacleCheckAccum = 0.f;
+		bObstacleAheadDash = false;
+
 		TargetFOV = DefaultFOV;
 
 		// 타이머 정리 (이미 만료됐어도 safe)
@@ -610,6 +565,106 @@ void AMyCharacter::EndStun()
 	if (!IsStunned()) return;
 
 	SetActionState(EMyActionState::Normal);
+}
+
+bool AMyCharacter::IsObstacleAhead()
+{
+	// ===== 전방 부채꼴 스피어 트레이스로 '벽/낮은 상자' 감지 =====
+	const FVector Origin = GetActorLocation();
+
+	FVector Forward = GetActorForwardVector();
+	Forward.Z = 0.f;
+	Forward.Normalize();
+
+	// 캐릭터 발 위치(Z) 추정: 캡슐 하프하이트를 알고 있으면 더 정확
+	float CapsuleHalfHeight = 0.f;
+	if (const UCapsuleComponent* Cap = GetCapsuleComponent())
+	{
+		CapsuleHalfHeight = Cap->GetScaledCapsuleHalfHeight();
+	}
+	const float FeetZ = Origin.Z - CapsuleHalfHeight;
+
+	// 감지할 오브젝트 타입
+	TArray<TEnumAsByte<EObjectTypeQuery>> TraceObjTypes;
+	TraceObjTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel2)); // Obstacle
+
+	TArray<AActor*> Ignore;
+	Ignore.Add(this);
+
+	const int32 NumRays = 5; // -half ~ +half
+	const float HalfRad = FMath::DegreesToRadians(BackflipHalfAngleDeg);
+
+	// 여러 높이에서 검사 (낮은 박스 보정)
+	const TArray<float> TraceHeights = { 30.f, 60.f, 100.f };
+
+	bool bObstacleAhead = false;
+
+	for (float Height : TraceHeights)
+	{
+		const FVector StartBase = FVector(
+			Origin.X,
+			Origin.Y,
+			FeetZ + Height
+		);
+
+		for (int32 i = 0; i < NumRays; ++i)
+		{
+			const float T = (NumRays == 1) ? 0.f : (i / float(NumRays - 1)); // 0..1
+			const float Angle = FMath::Lerp(-HalfRad, HalfRad, T);
+
+			const FVector Dir = UKismetMathLibrary::RotateAngleAxis(
+				Forward,
+				FMath::RadiansToDegrees(Angle),
+				FVector::UpVector
+			);
+
+			const FVector Start = StartBase;
+			const FVector End = Start + Dir * ObstacleCheckRadius;
+
+			FHitResult Hit;
+			const bool bHit = UKismetSystemLibrary::SphereTraceSingleForObjects(
+				this,
+				Start, End,
+				BackflipSphereRadius,      // <-- 두께 줘서 빈틈 감소
+				TraceObjTypes,
+				/*bTraceComplex*/ false,
+				Ignore,
+				EDrawDebugTrace::None,
+				Hit,
+				/*bIgnoreSelf*/ true
+			);
+
+			if (!bHit) continue;
+
+			// 면 법선
+			const float AbsNZ = FMath::Abs(Hit.ImpactNormal.Z); // 0=수직, 1=수평
+
+			// 1) 벽: 거의 수직면
+			const bool bIsWall = (AbsNZ < 0.4f);
+
+			// 2) 낮은 상자 윗면: 거의 수평면 + 발 기준 낮은 높이
+			const bool bIsLowTop =
+				(AbsNZ > 0.8f) &&
+				((Hit.ImpactPoint.Z - FeetZ) <= LowObstacleMaxHeight);
+
+			if (bIsWall || bIsLowTop)
+			{
+				bObstacleAhead = true;
+
+				// 필요 시 디버그:
+				// DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 10.f, 12, FColor::Red, false, 0.5f);
+				// DrawDebugLine(GetWorld(), Start, Hit.ImpactPoint, FColor::Red, false, 0.5f, 0, 2.f);
+				break;
+			}
+			// else // 필요 시 디버그:
+			// DrawDebugLine(GetWorld(), Start, End, FColor::Green, false, 0.5f, 0, 1.f);
+		}
+
+		if (bObstacleAhead)
+			break;
+	}
+
+	return bObstacleAhead;
 }
 
 void AMyCharacter::HandleClean()

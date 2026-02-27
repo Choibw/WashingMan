@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
+#include "Components/WidgetComponent.h"
 #include "MyCharacter.generated.h"
 
 class AATrashItem;
@@ -37,6 +38,9 @@ class WASHINGMAN_API AMyCharacter : public ACharacter
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI", meta = (AllowPrivateAccess = "true"))
+	UWidgetComponent* AlertWidgetComp = nullptr;
 
 protected:
 
@@ -96,6 +100,13 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dash")
 	float DashAcceleration = 999999.f;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Dash|Sensor")
+	bool bObstacleAheadDash = false;
+
+	float ObstacleCheckAccum = 0.f;
+
+	bool bPrevObstacleAheadDash = false;
+
 	// 대시 이동 방향 (월드 기준)
 	UPROPERTY(VisibleAnywhere, Category = "Dash")
 	FVector DashDirection;
@@ -109,7 +120,7 @@ protected:
 	float BackflipDuration = 1.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Backflip")
-	float BackflipCheckRadius = 200.f;   // 반구 반경
+	float ObstacleCheckRadius = 200.f;   // 반구 반경
 
 	UPROPERTY(EditAnywhere, Category = "Backflip")
 	float BackflipHalfAngleDeg = 10.f;  // 좌우 반각(= 총 20도)
@@ -254,6 +265,9 @@ public:
 		CarriedCount = 0;
 		return Out;
 	}
+
+private:
+	bool IsObstacleAhead();
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", meta = (AllowPrivateAccess = "true"))
