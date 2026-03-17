@@ -12,6 +12,7 @@ class AATrashItem;
 class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
+class UMyHitReactionComponent;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMyCharacter, Log, All);
@@ -41,6 +42,9 @@ class WASHINGMAN_API AMyCharacter : public ACharacter
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI", meta = (AllowPrivateAccess = "true"))
 	UWidgetComponent* AlertWidgetComp = nullptr;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "FeedBack", meta = (AllowPrivateAccess = "true"))
+	UMyHitReactionComponent* HitReactionComp;
 
 protected:
 
@@ -77,9 +81,6 @@ protected:
 
 	float DefaultFOV = 90.0f;
 	float TargetFOV = 90.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Camera|Shake")
-	TSubclassOf<UCameraShakeBase> StunCameraShake;
 
 	// Dash 관련 변수
 

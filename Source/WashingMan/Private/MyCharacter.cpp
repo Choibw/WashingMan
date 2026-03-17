@@ -14,6 +14,7 @@
 #include "DrawDebugHelpers.h"
 #include "ATrashItem.h"
 #include "MyGameMode.h"
+#include "MyHitReactionComponent.h"
 
 DEFINE_LOG_CATEGORY(LogMyCharacter);
 
@@ -53,6 +54,9 @@ AMyCharacter::AMyCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
+	// 내 연출 피드백 컴포넌트 붙이기
+	HitReactionComp = CreateDefaultSubobject<UMyHitReactionComponent>(TEXT("HitReactionComp"));
+
 	UCapsuleComponent* Cap = GetCapsuleComponent();
 	if (Cap)
 	{
@@ -78,7 +82,7 @@ AMyCharacter::AMyCharacter()
 		AlertWidgetComp->SetWidgetSpace(EWidgetSpace::Screen);   // 항상 카메라를 향함
 		AlertWidgetComp->SetDrawAtDesiredSize(true);
 
-		AlertWidgetComp->SetRelativeLocation(FVector(0.f, 20.f, 130.f)); // 머리 위 + 살짝 우측
+		AlertWidgetComp->SetRelativeLocation(FVector(0.f, 20.f, 50.f)); // 머리 위 + 살짝 우측
 		AlertWidgetComp->SetVisibility(false);                  // 기본 숨김 (HiddenInGame 대체)
 	}
 	else
@@ -334,13 +338,7 @@ void AMyCharacter::EnterState(EMyActionState State)
 		GetCharacterMovement()->DisableMovement();
 		UE_LOG(LogMyCharacter, Warning, TEXT("Stunned for %.2f seconds"), StunDesiredDuration);
 
-		if (APlayerController* PC = Cast<APlayerController>(GetController()))
-		{
-			if (StunCameraShake)
-			{
-				PC->ClientStartCameraShake(StunCameraShake, 1.0f);
-			}
-		}
+		HitReactionComp->PlayStunFeedback();
 
 		const float Desired = FMath::Max(0.05f, StunDesiredDuration);
 		float PlayRate = 1.f;
